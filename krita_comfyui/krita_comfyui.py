@@ -2,13 +2,17 @@ from krita import *
 from PyQt5.Qt import *
 from PyQt5.QtCore import QThread, pyqtSlot
 import os
+import json
 import logging
+from pathlib import Path
+from .krita_comfyui_settings import SettingsDialog
 from .config_logging import init_logging
 from .worker import ComfyWorker
 
 DOCKER_TITLE = 'Krita ComfyUi'
 
 class KritaComfyUi(DockWidget):
+    CONFIG_FILE = "config.json"
 
     def __init__(self):
         super().__init__()
@@ -16,9 +20,14 @@ class KritaComfyUi(DockWidget):
         self.logger = logging.getLogger("krita_comfyui")
         self.setWindowTitle(DOCKER_TITLE)
         self.plugin_dir = os.path.abspath(os.path.dirname(__file__))
-
+        
         central_widget = QWidget()
         layout = QVBoxLayout(central_widget)
+
+        # Botón “Configuración”
+        self.settings_btn = QPushButton("⚙️ Configuración")
+        layout.addWidget(self.settings_btn)
+        self.settings_btn.clicked.connect(self.open_settings_dialog)
 
         # Caja de texto
         self.line_edit = QLineEdit()
@@ -46,12 +55,29 @@ class KritaComfyUi(DockWidget):
         self.add_to_krita_btn = QPushButton("Añadir imagen seleccionada a Krita")
         layout.addWidget(self.add_to_krita_btn)
         self.add_to_krita_btn.clicked.connect(self.on_add_to_krita_clicked)
+       
 
         self.setWidget(central_widget)
         self.logger.info("KritaComfyUi loaded")
-        
+
+    def load_config(self):
+        cfg_path = Path(os.path.join(self.plugin_dir, self.CONFIG_FILE))
+        if cfg_path.exists():
+            try:
+                return json.loads(cfg_path.read_text())
+            except Exception as e:
+                QMessageBox.warning(self, "Error", f"Fallo al leer la configuración: {e}")
+        return None
+
+    def open_settings_dialog(self):
+        dlg = SettingsDialog(self.plugin_dir, parent=self)
+        if dlg.exec_():
+            # If the dialog was accepted we reload settings or take action here
+            self.logger.info("[Settings] Cambios guardados")
+            
     def conmfyui_promt(self):
         """Este método ahora solo prepara el worker y lo lanza."""
+        cfg = self.load_config()
         prompt = self.line_edit.text().strip()
         if not prompt:
             self.logger.error("[DockTextButton] La caja está vacía.")
