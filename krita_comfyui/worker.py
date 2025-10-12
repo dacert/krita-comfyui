@@ -1,20 +1,24 @@
 from PyQt5.QtCore import QObject, pyqtSignal
-import random
 import asyncio
-import logging
+from  logging import Logger
 from .comfyui_client import ComfyUIClient
+from .comfyui_http_client import ComfyUIHttpClient 
+from .prompt_builder import PromptBuilder
+from .workflow_utils import find_output_node
 
 class ComfyWorker(QObject):
     finished = pyqtSignal(dict)      # dict de imágenes generadas
     error    = pyqtSignal(str)       # mensaje de error
     progress = pyqtSignal(float)
 
-    def __init__(self, workflow_path: str, prompt_text: str,
-                 seed: int | None = None, parent=None):
+    def __init__(self, logger: Logger, server_url: str, workflow_name: str,
+                 prompt_text: str, cfg: dict, seed: int | None = None, parent=None):
         super().__init__(parent)
-        self.logger = logging.getLogger("krita_comfyui")
-        self.workflow_path = workflow_path
+        self.logger = logger
+        self.server_url = server_url
+        self.workflow_name = workflow_name
         self.prompt_text  = prompt_text
+        self.cfg = cfg
         self.seed         = seed
 
     async def _run_async(self):
@@ -23,34 +27,45 @@ class ComfyWorker(QObject):
         new_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(new_loop)
 
-        client = ComfyUIClient(server="127.0.0.1:8188")
+        http_client = ComfyUIHttpClient(self.server_url)
+        client = ComfyUIClient(self.logger, self.server_url)
 
         try:
             # --- 2. Abrimos la conexión WS con el context manager ----
             async with client as c:
-                seed_val = self.seed if self.seed is not None else random.randint(1, 11768320141)
-                
+                # Obtener workflow desde el servidor y convertirlo
+                wf_api = http_client.get_workflow_api(self.workflow_name)
+                # Construir prompt usando la configuración guardada
+                prompt_builder = PromptBuilder(self.cfg)                
+                prompt = prompt_builder.build(wf_api, self.workflow_name, self.prompt_text, self.seed)
+
+                output_node = find_output_node(wf_api)
+                if output_node is not None:
+                    node_id, _ = output_node
+                else:
+                    raise Exception("No se encontró ningún nodo de tipo 'SaveImageWebsocket' para el output.")
+                self.logger.info(f"[ComfyWorker] Output_node: {node_id}")
+                                
                 def _progress_cb(percent: float):
                    self.progress.emit(percent)
 
-                images = await c.send_prompt_and_get_images(
-                    workflow=self.workflow_path,
-                    prompt_text=self.prompt_text,
-                    seed=seed_val,
-                    timeout=5 * 60,          # segundos
+                images = await c.run_workflow(
+                    workflow=prompt,
+                    output_node=node_id,
+                    timeout=5 * 60,
                     progress_callback=_progress_cb
                 )
             # --- 3. Emitimos los resultados ----------------------------
             self.finished.emit(images)
-            self.logger.info(f"emit images: {len(images)}")
+            self.logger.info(f"[ComfyWorker] Emit images: {len(images)}")
         except Exception as exc:
             # Propagamos la excepción al slot de error y guardamos en log
             self.error.emit(str(exc))
-            self.logger.exception(f"_run_async Error {exc}")
+            self.logger.exception(f"[ComfyWorker] Error {exc}")
         finally:
             await client.close()          # Cierra WS si no se usó el context manager
 
     def run(self):
-        """Método que se conecta al hilo de Qt."""
+        """Método que se conecta al hilo de Qt."""   
         asyncio.run(self._run_async())
 

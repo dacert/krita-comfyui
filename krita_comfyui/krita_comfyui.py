@@ -20,6 +20,9 @@ class KritaComfyUi(DockWidget):
         self.logger = logging.getLogger("krita_comfyui")
         self.setWindowTitle(DOCKER_TITLE)
         self.plugin_dir = os.path.abspath(os.path.dirname(__file__))
+
+        # load configuration once
+        self.cfg = self.load_config() or {}
         
         central_widget = QWidget()
         layout = QVBoxLayout(central_widget)
@@ -33,6 +36,12 @@ class KritaComfyUi(DockWidget):
         self.line_edit = QLineEdit()
         self.line_edit.setPlaceholderText("Introduce una URL de imagen")
         layout.addWidget(self.line_edit)
+
+        # Combo para elegir workflow (solo los configurados)
+        self.workflow_combo = QComboBox()
+        layout.addWidget(QLabel("Workflow seleccionado:"))
+        layout.addWidget(self.workflow_combo)
+        self.populate_workflow_combo()
 
         # Botón “Descargar”
         self.button = QPushButton("Descargar y mostrar miniatura")
@@ -68,6 +77,15 @@ class KritaComfyUi(DockWidget):
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Fallo al leer la configuración: {e}")
         return None
+    
+    def populate_workflow_combo(self):
+        """Llena el combo con los workflows guardados en config.json."""
+        self.workflow_combo.clear()
+        workflows = self.cfg.get("workflows", [])
+        for wf in workflows:
+            name = wf.get("workflow_name")
+            if name:
+                self.workflow_combo.addItem(name)
 
     def open_settings_dialog(self):
         dlg = SettingsDialog(self.plugin_dir, parent=self)
@@ -77,20 +95,32 @@ class KritaComfyUi(DockWidget):
             
     def conmfyui_promt(self):
         """Este método ahora solo prepara el worker y lo lanza."""
-        cfg = self.load_config()
         prompt = self.line_edit.text().strip()
         if not prompt:
-            self.logger.error("[DockTextButton] La caja está vacía.")
-            raise ValueError("[DockTextButton] La caja está vacía.")
+            self.logger.error("[KritaComfyUi] La caja está vacía.")
+            QMessageBox.warning(self, "Error", "La caja está vacía.")
+            return
 
-        # Ruta al workflow (puede ser absoluta o relativa)
-        workflow_path = os.path.join(self.plugin_dir, "workflows/qwen_text_image.json")
+        # Obtener URL del servidor desde la configuración (o default)
+        server_url = self.cfg.get("comfyui_url", "http://127.0.0.1:8188")
+
+         # Workflow a usar
+        wf_name = self.workflow_combo.currentText()
+        self.logger.info(f"[KritaComfyUi] Se ha seleccionado el workflow {wf_name}.")
+        if not wf_name:
+            self.logger.error("[KritaComfyUi] No se ha seleccionado workflow.")
+            QMessageBox.warning(self, "Error", "No se ha seleccionado workflow.")
+            return
 
         # Crear el worker y un hilo
-        self.thread = QThread()                 # guardamos la referencia para evitar que se recolecte
-        self.worker = ComfyWorker(workflow_path, prompt)
-
-        self.logger.info("This is an info message. conmfyui_promt")
+        self.thread = QThread()
+        self.worker = ComfyWorker(
+            logger=self.logger,
+            server_url=server_url,
+            workflow_name=wf_name,
+            prompt_text=prompt,
+            cfg=self.cfg
+        )
 
         # Conectar señales
         self.worker.moveToThread(self.thread)
@@ -140,7 +170,8 @@ class KritaComfyUi(DockWidget):
     def on_worker_error(self, msg: str):
         """Manejo de errores (puedes mostrar un mensaje al usuario)."""
         self.progress_bar.setValue(0)
-        self.logger.error(f"[ComfyWorker error]: {msg}")
+        self.logger.error(f"[KritaComfyUi error]: {msg}")
+        QMessageBox.warning(self, "Error", msg)
 
     def on_add_to_krita_clicked(self):
         doc = Krita.instance().activeDocument()

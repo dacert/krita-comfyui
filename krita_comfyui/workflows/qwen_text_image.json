@@ -1,7 +1,10 @@
 {
   "3": {
     "inputs": {
-      "seed": 117683201411649,
+      "seed": [
+        "136",
+        0
+      ],
       "steps": 8,
       "cfg": 1,
       "sampler_name": "euler",
@@ -31,7 +34,10 @@
   },
   "6": {
     "inputs": {
-      "text": "diseña un prototipo de nivel para un juego de plataformas 2d",
+      "text": [
+        "132",
+        0
+      ],
       "clip": [
         "38",
         0
@@ -44,7 +50,10 @@
   },
   "7": {
     "inputs": {
-      "text": "",
+      "text": [
+        "135",
+        0
+      ],
       "clip": [
         "38",
         0
@@ -104,7 +113,7 @@
   },
   "66": {
     "inputs": {
-      "shift": 3.1000000000000005,
+      "shift": 3.1,
       "model": [
         "73",
         0
@@ -138,6 +147,33 @@
       "title": "Unet Loader (GGUF)"
     }
   },
+  "132": {
+    "inputs": {
+      "value": "diseña un prototipo de nivel para un juego de plataformas 2d"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "KritaPrompt"
+    }
+  },
+  "135": {
+    "inputs": {
+      "value": ""
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "KritaNegativePrompt"
+    }
+  },
+  "136": {
+    "inputs": {
+      "value":  117683201411649
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "KritaSeed"
+    }
+  },
   "websocket_output_image": {
     "inputs": {
       "images": [
@@ -147,19 +183,7 @@
     },
     "class_type": "SaveImageWebsocket",
     "_meta": {
-      "title": "SaveImageWebsocket"
-    }
-  },
-  "77": {
-    "inputs": {
-      "images": [
-        "8",
-        0
-      ]
-    },
-    "class_type": "PreviewImage",
-    "_meta": {
-      "title": "Preview Image"
+      "title": "KritaOutputImage"
     }
   }
 }

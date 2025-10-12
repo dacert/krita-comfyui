@@ -1,5 +1,5 @@
 {
-  "comfyui_url": "127.0.0.1:8188",
+  "comfyui_url": "http://127.0.0.1:8188",
   "workflows": [
     {
       "workflow_name": "qwen_text_image.json",
@@ -19,6 +19,81 @@
         "image_loader": {
           "node_id": "77",
           "property": "images"
+        },
+        "num_image_sampler": {
+          "node_id": "58",
+          "property": "batch_size"
+        }
+      }
+    },
+    {
+      "workflow_name": "image_qwen_image.json",
+      "inputs": {
+        "prompt": {
+          "node_id": "6",
+          "property": "text"
+        },
+        "negative_prompt": {
+          "node_id": "7",
+          "property": "text"
+        },
+        "seed": {
+          "node_id": "3",
+          "property": "seed"
+        },
+        "image_loader": {
+          "node_id": null,
+          "property": null
+        },
+        "num_image_sampler": {
+          "node_id": "58",
+          "property": "batch_size"
+        }
+      }
+    },
+    {
+      "workflow_name": "qwen-image_workflow.json",
+      "inputs": {
+        "prompt": {
+          "node_id": "100",
+          "property": "text"
+        },
+        "negative_prompt": {
+          "node_id": "93",
+          "property": "text"
+        },
+        "seed": {
+          "node_id": "95",
+          "property": "seed"
+        },
+        "image_loader": {
+          "node_id": null,
+          "property": null
+        },
+        "num_image_sampler": {
+          "node_id": "97",
+          "property": "batch_size"
+        }
+      }
+    },
+    {
+      "workflow_name": "qwen_text_image_api.json",
+      "inputs": {
+        "prompt": {
+          "node_id": "6",
+          "property": "text"
+        },
+        "negative_prompt": {
+          "node_id": "7",
+          "property": "text"
+        },
+        "seed": {
+          "node_id": "3",
+          "property": "seed"
+        },
+        "image_loader": {
+          "node_id": null,
+          "property": null
         },
         "num_image_sampler": {
           "node_id": "58",

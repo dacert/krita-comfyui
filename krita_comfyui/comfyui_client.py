@@ -1,76 +1,47 @@
 import asyncio
 import json
 import uuid
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
-import logging
+from typing import Any, Callable, Dict, List
+from urllib.parse import urlparse
+from logging import Logger
 
-if __name__ != "__main__":
-    from .websockets.src.websockets.exceptions import ConnectionClosedOK
-    from .websockets.src.websockets import ClientConnection, connect as websockets_connect
+from .websockets.src.websockets.exceptions import ConnectionClosedOK
+from .websockets.src.websockets import ClientConnection, connect as websockets_connect
 
-import urllib.parse
-import urllib.request
-
+from .comfyui_http_client import ComfyUIHttpClient 
 
 class ComfyUIClient:
     """
-    Cliente asíncrono para interactuar con el servidor ComfyUI (WS + HTTP API).
+    Cliente asíncrono para interactuar con el servidor ComfyUI (WS).
     """
 
-    def __init__(self, server: str = "127.0.0.1:8188"):
-        self.server_address = server.rstrip("/")
+    def __init__(self, logger: Logger, server: str):        
+        self.logger = logger        
+        self.server_address = self.get_ws_host(server)
+        self.http_client = ComfyUIHttpClient(server)
         self.client_id = str(uuid.uuid4())
         self.ws: ClientConnection | None = None
-        # Se reserva un loop propio para la clase (puedes usar el global si lo prefieres)
         self._loop = asyncio.get_event_loop()
-        self.logger = logging.getLogger("krita_comfyui")
 
     async def __aenter__(self):
         await self._connect_ws()
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        await self.close()
+        await self.close()    
+    
+    def get_ws_host(self, url: str) -> str:
+        parsed = urlparse(url)
+        return f"ws://{parsed.hostname}:{parsed.port}" if parsed.port else parsed.hostname
 
     # ------------------------------------------------------------------ #
     #  Conexión WebSocket
     # ------------------------------------------------------------------ #
     async def _connect_ws(self) -> None:
-        url = f"ws://{self.server_address}/ws?clientId={self.client_id}"
+        url = f"{self.server_address}/ws?clientId={self.client_id}"
         self.ws = await websockets_connect(url, max_size=2**30, ping_timeout=60)
-        print(f"[ComfyUIClient] WS conectado como {self.client_id}")
-
-    # ------------------------------------------------------------------ #
-    #  Métodos HTTP
-    # ------------------------------------------------------------------ #
-
-    @staticmethod
-    def _load_json(file_path: Union[str, Path]) -> dict:
-        path = Path(file_path).expanduser().resolve()
-        if not path.is_file():
-            raise FileNotFoundError(f"No such file: {path}")
-
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-
-    async def _queue_prompt(self, prompt: dict) -> dict:
-        payload = {"prompt": prompt, "client_id": self.client_id}
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            f"http://{self.server_address}/prompt", data=data
-        )
-        with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read())
-
-    async def _get_image(self, filename: str, subfolder: str, folder_type: str) -> bytes:
-        query = urllib.parse.urlencode(
-            {"filename": filename, "subfolder": subfolder, "type": folder_type}
-        )
-        url = f"http://{self.server_address}/view?{query}"
-        with urllib.request.urlopen(url) as resp:
-            return resp.read()
-
+        self.logger.info(f"[ComfyUIClient] WS conectado como {self.client_id}")
+    
     # ------------------------------------------------------------------ #
     #  Lógica de recepción de imágenes vía WS
     # ------------------------------------------------------------------ #
@@ -79,6 +50,7 @@ class ComfyUIClient:
         self,
         prompt_id: str,
         num_nodes: int,
+        output_node: str,
         *,
         timeout: float | None = None,
         progress_callback: Callable[[float], Any] | None = None
@@ -122,7 +94,7 @@ class ComfyUIClient:
                                 progress_callback(round(percent_complete, 2))
                                 
                     else:
-                        if current_node == "websocket_output_image":
+                        if current_node == output_node:
                             output_images.setdefault(current_node, []).append(message[8:])
             except ConnectionClosedOK:
                 pass
@@ -138,36 +110,19 @@ class ComfyUIClient:
     #  Public API
     # ------------------------------------------------------------------ #
 
-    async def send_prompt_and_get_images(
+    async def run_workflow(
         self,
-        workflow: Union[str, Path, dict],
-        prompt_text: str,
+        workflow: dict,
+        output_node: str,
         *,
-        seed: int | None = None,
         timeout: float | None = None,
         progress_callback: Callable[[float], Any] | None = None
     ) -> Dict[str, List[bytes]]:
-        """
-        Envía un prompt (JSON desde disco o diccionario) y devuelve
-        un `dict` con las imágenes generadas.
-        """
-        if isinstance(workflow, (str, Path)):
-            prompt = self._load_json(workflow)
-        else:
-            prompt = workflow
-
-        if not prompt_text:
-            raise ValueError("El prompt_text es necesario")
-
-        # Asumimos que los nodos están numerados de la misma forma que en el ejemplo
-        prompt["6"]["inputs"]["text"] = prompt_text
-        if seed is not None:
-            prompt["3"]["inputs"]["seed"] = seed
-
-        resp = await self._queue_prompt(prompt)
+        
+        resp = self.http_client.queue_prompt(workflow, self.client_id)
         prompt_id = resp["prompt_id"]
 
-        return await self._receive_images(prompt_id, len(prompt), timeout=timeout, progress_callback=progress_callback)
+        return await self._receive_images(prompt_id, len(workflow), output_node, timeout=timeout, progress_callback=progress_callback)
 
     # ------------------------------------------------------------------ #
     #  Limpieza
@@ -177,31 +132,4 @@ class ComfyUIClient:
         """Cierra la conexión WebSocket."""
         if self.ws:
             await self.ws.close()
-            print("[ComfyUIClient] WS cerrado")
-
-
-
-# ------------------------------------------------------------------ #
-#  Ejemplo de uso rápido (para ejecutar con `python -m comfyui_client`)
-
-if __name__ == "__main__":
-    from config_logging import init_logging
-    from websockets.src.websockets.exceptions import ConnectionClosedOK
-    from websockets.src.websockets import ClientConnection, connect as websockets_connect
-    async def main():
-        init_logging()
-        async with ComfyUIClient("127.0.0.1:8188") as client:
-            images_dict = await client.send_prompt_and_get_images(
-                "workflows/qwen_text_image.json",
-                "masterpiece best quality hot girl",
-                seed=42,
-                timeout=5 * 60,  # segundos
-            )
-
-            for node_name, imgs in images_dict.items():
-                for idx, img_bytes in enumerate(imgs):
-                    out_file = Path(f"{node_name}_{idx}.png")
-                    out_file.write_bytes(img_bytes)
-                    print(f"Guardado: {out_file}")
-
-    asyncio.run(main())
+            self.logger.info("[ComfyUIClient] WS cerrado")
