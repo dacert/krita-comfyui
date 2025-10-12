@@ -27,30 +27,49 @@ class KritaComfyUi(DockWidget):
         central_widget = QWidget()
         layout = QVBoxLayout(central_widget)
 
-        # Botón “Configuración”
-        self.settings_btn = QPushButton("⚙️ Configuración")
-        layout.addWidget(self.settings_btn)
-        self.settings_btn.clicked.connect(self.open_settings_dialog)
-
-        # Caja de texto
-        self.line_edit = QLineEdit()
-        self.line_edit.setPlaceholderText("Introduce una URL de imagen")
-        layout.addWidget(self.line_edit)
+        workflow_layout = QHBoxLayout()
 
         # Combo para elegir workflow (solo los configurados)
         self.workflow_combo = QComboBox()
-        layout.addWidget(QLabel("Workflow seleccionado:"))
-        layout.addWidget(self.workflow_combo)
+        layout.addWidget(QLabel("Workflow:"))
+        workflow_layout.addWidget(self.workflow_combo, stretch=1)
         self.populate_workflow_combo()
+        
+        # Botón “Configuración”
+        self.settings_btn = QToolButton()
+        settings_icon = Krita.instance().icon("configure")
+        self.settings_btn.setIcon(settings_icon)
+        workflow_layout.addWidget(self.settings_btn)
+        self.settings_btn.clicked.connect(self.open_settings_dialog)
+
+        layout.addLayout(workflow_layout)
+
+        # Caja de texto
+        prompt_container = QWidget()
+        prompt_layout = QHBoxLayout(prompt_container)
+        prompt_layout.setContentsMargins(0, 0, 0, 0)
+        self.prompt_box = QPlainTextEdit()
+        self.prompt_box.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        self.prompt_box.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        font_metrics = self.prompt_box.fontMetrics()
+        line_height = font_metrics.lineSpacing()
+        self.prompt_box.setMinimumHeight(line_height * 3)                
+        self.prompt_box.setMaximumHeight(line_height * 5)
+        self.prompt_box.setPlaceholderText("Describe el contenido que quieres crear")
+        prompt_layout.addWidget(self.prompt_box)
+        layout.addWidget(prompt_container)
 
         # Botón “Descargar”
-        self.button = QPushButton("Descargar y mostrar miniatura")
-        layout.addWidget(self.button)
-        self.button.clicked.connect(self.conmfyui_promt)
+        self.create_btn = QPushButton("Generar")
+        create_icon = Krita.instance().icon("tools-wizard")
+        self.create_btn.setIcon(create_icon)
+        layout.addWidget(self.create_btn)
+        self.create_btn.clicked.connect(self.conmfyui_promt)
 
         # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
+        self.progress_bar.setMaximumHeight(10)
         layout.addWidget(self.progress_bar)
 
         # Lista de miniaturas
@@ -61,9 +80,11 @@ class KritaComfyUi(DockWidget):
         layout.addWidget(self.thumbnail_list)
 
         # Botón “Añadir a Krita”
-        self.add_to_krita_btn = QPushButton("Añadir imagen seleccionada a Krita")
-        layout.addWidget(self.add_to_krita_btn)
-        self.add_to_krita_btn.clicked.connect(self.on_add_to_krita_clicked)
+        self.apply_btn = QPushButton("Aplicar")
+        apply_icon = Krita.instance().icon("dialog-ok")
+        self.apply_btn.setIcon(apply_icon)
+        layout.addWidget(self.apply_btn)
+        self.apply_btn.clicked.connect(self.on_add_to_krita_clicked)
        
 
         self.setWidget(central_widget)
@@ -95,7 +116,7 @@ class KritaComfyUi(DockWidget):
             
     def conmfyui_promt(self):
         """Este método ahora solo prepara el worker y lo lanza."""
-        prompt = self.line_edit.text().strip()
+        prompt = self.prompt_box.toPlainText().strip()
         if not prompt:
             self.logger.error("[KritaComfyUi] La caja está vacía.")
             QMessageBox.warning(self, "Error", "La caja está vacía.")
@@ -157,7 +178,7 @@ class KritaComfyUi(DockWidget):
                                       transformMode=Qt.SmoothTransformation)
 
                 icon = QIcon(thumb)
-                item = QListWidgetItem(icon, f"{self.line_edit.text().strip()}_{idx}.png")
+                item = QListWidgetItem(icon, f"{self.prompt_box.toPlainText().strip()}_{idx}.png")
                 # Guardar los datos originales
                 item.setData(Qt.UserRole, img_bytes)          # bytes de la imagen
                 item.setData(Qt.UserRole + 1, pixmap.toImage())   # QImage
