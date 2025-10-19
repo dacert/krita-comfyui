@@ -16,6 +16,7 @@ class SettingsDialog(QDialog):
         self.logger = logging.getLogger("krita_comfyui")
         self.setWindowTitle("Configuración del Plugin")
         self.plugin_dir = Path(plugin_dir)
+        self.wf_selectors = {}
 
         layout = QVBoxLayout(self)
         self.tabs = QTabWidget()
@@ -89,21 +90,60 @@ class SettingsDialog(QDialog):
         self.workflow_combo.clear()
         self.workflow_combo.addItem("— No workflow selected —")  # default
 
-        icon = Krita.instance().icon("bookmarks") 
+        saved_icon = Krita.instance().icon("bookmarks")
+        warn_icon = Krita.instance().icon("warning")
+
         for name in wf_names:
+            self.logger.info(name)
             item_index = self.workflow_combo.count()
             self.workflow_combo.addItem(name)
 
-            # MARK: if this workflow already has a configuration, make it bold
-            if any(w.get("workflow_name") == name for w in self.workflows_cfg):                
-                self.workflow_combo.setItemIcon(item_index, icon)
-                font = self.workflow_combo.font()
-                font.setBold(True)
-                
-                # Set the font on the specific item via its model
+            # Find the stored configuration for this workflow (if any)
+            matching_cfg = next(
+                (w for w in self.workflows_cfg if w.get("workflow_name") == name),
+                None,
+            )
+
+            icon_to_use = None
+            font_bold = False
+
+            if matching_cfg:
+                self.logger.info(matching_cfg)
+                try:
+                    wf_data = self._get_workflow_api(
+                        self.comfyui_url_edit.text().strip(), name
+                    )
+                except Exception as e:
+                    self.logger.exception(e)
+                    wf_data = {}
+                self.logger.info(wf_data)
+
+                missing_ref = False
+                for key, prop_cfg in matching_cfg.get("inputs", {}).items():
+                    node_id, inp_name = prop_cfg.get("node_id"), prop_cfg.get(
+                        "property"
+                    )
+                    # ignorar image_loader solo si inp_name es None
+                    if (key == "image_loader" and inp_name is None):
+                        continue
+                    
+                    # Ensure key comparison is type‑agnostic (strings vs ints)
+                    if (inp_name not in wf_data.get(str(node_id), {}).get("inputs", {})):
+                        missing_ref = True
+                        break
+
+                font_bold = True  # bold for all stored workflows
+                icon_to_use = warn_icon if missing_ref else saved_icon
+
+            if icon_to_use:
+                self.workflow_combo.setItemIcon(item_index, icon_to_use)
+
+            if font_bold:
                 model_item = self.workflow_combo.model().item(item_index)
                 if model_item:
-                    model_item.setFont(font)
+                    fnt = model_item.font()
+                    fnt.setBold(True)
+                    model_item.setFont(fnt)
 
         self.workflow_combo.setCurrentIndex(0)
         
@@ -120,14 +160,18 @@ class SettingsDialog(QDialog):
             # Guardamos la lista completa para poder actualizarla más tarde
             self.workflows_cfg = data.get("workflows", [])
             
-            # Pre‑seleccionamos el workflow guardado (si existe)
-            #if self.workflows_cfg:
-            #    wf_obj = self.workflows_cfg[0]  # usamos el primero por defecto
-            #    wf_name = wf_obj.get("workflow_name")
-            #    idx = self.workflow_combo.findText(wf_name)
-            #    if idx >= 0:
-            #        self.workflow_combo.setCurrentIndex(idx)
-
+            #eliminar workflows que ya no existen en el servidor ----
+            if self._is_valid_url(self.comfyui_url_edit.text().strip()):
+                server_workflows = set(
+                    Path(item["path"]).name for item in self._get_workflows_list(
+                        self.comfyui_url_edit.text().strip()
+                    ) if "path" in item
+                )
+                # Filtramos solo los que están en el servidor
+                self.workflows_cfg = [
+                    wf for wf in self.workflows_cfg if wf.get("workflow_name") in server_workflows
+                ]
+            
             self.comfyui_url_edit.textChanged.connect(self._on_comfyui_url_changed)
             self._on_comfyui_url_changed()
         except Exception as e:
@@ -142,7 +186,7 @@ class SettingsDialog(QDialog):
 
         # --- Workflow ---------------------------------------------
         wf_name = self.workflow_combo.currentText()
-        if wf_name:
+        if wf_name and wf_name != "— No workflow selected —":
             inputs_cfg = {}
             for prop, (combo, opts) in self.wf_selectors.items():
                 idx = combo.currentIndex()
@@ -206,10 +250,7 @@ class SettingsDialog(QDialog):
                         "image_loader", "num_image_sampler"]:
             combo = QComboBox()
             options = []
-
-            # Si es image_loader, añadimos la opción vacía al principio
-            if prop == "image_loader":
-                options.append(("", None, None))  # valor nulo
+            options.append(("", None, None))  # valor nulo
 
             for node_id, node in wf_data.items():
                 if isinstance(node, dict) and "inputs" in node:
@@ -232,7 +273,7 @@ class SettingsDialog(QDialog):
                                     o[2] == saved["property"])
                     combo.setCurrentIndex(idx)
                 except StopIteration:
-                    pass
+                    combo.setCurrentIndex(0)
 
             self.wf_fields_layout.addRow(QLabel(prop + ":"), combo)
             self.wf_selectors[prop] = (combo, options)

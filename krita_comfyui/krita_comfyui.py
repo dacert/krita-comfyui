@@ -6,6 +6,7 @@ import json
 import logging
 from pathlib import Path
 from .krita_comfyui_settings import SettingsDialog
+from .comfyui_http_client import ComfyUIHttpClient 
 from .config_logging import init_logging
 from .worker import ComfyWorker
 
@@ -100,13 +101,31 @@ class KritaComfyUi(DockWidget):
         return None
     
     def populate_workflow_combo(self):
-        """Llena el combo con los workflows guardados en config.json."""
+        """Llena el combo con los workflows guardados en config.json
+        que realmente existen en el servidor ComfyUI."""
         self.workflow_combo.clear()
-        workflows = self.cfg.get("workflows", [])
-        for wf in workflows:
+
+        #Obtener la lista de workflows disponibles en el servidor
+        server_url = self.cfg.get("comfyui_url", "http://127.0.0.1:8188")
+        try:
+            http_client = ComfyUIHttpClient(server_url)
+            server_workflows = {
+                Path(item["path"]).name for item in http_client.get_workflows_list()
+                if "path" in item
+            }
+        except Exception as e:
+            self.logger.warning(f"[KritaComfyUi] Error al consultar workflows: {e}")
+            server_workflows = set()
+
+        #Filtrar la configuración local por los nombres que existen en el servidor
+        for wf in self.cfg.get("workflows", []):
             name = wf.get("workflow_name")
-            if name:
+            if not name:
+                continue
+            if name in server_workflows:
                 self.workflow_combo.addItem(name)
+            else:
+                self.logger.info(f"[KritaComfyUi] Workflow {name} no encontrado en el servidor; omitido.")
 
     def open_settings_dialog(self):
         dlg = SettingsDialog(self.plugin_dir, parent=self)
