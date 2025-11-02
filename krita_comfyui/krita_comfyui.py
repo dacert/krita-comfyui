@@ -2,13 +2,12 @@ from krita import *
 from PyQt5.Qt import *
 from PyQt5.QtCore import QThread, pyqtSlot
 import os
-import json
-import logging
 from pathlib import Path
 from .krita_comfyui_settings import SettingsDialog
-from .comfyui_http_client import ComfyUIHttpClient 
-from .config_logging import init_logging
+from .comfy_client import ComfyHttpClient 
+from .config_logging import init_logging, getLogger
 from .worker import ComfyWorker
+from .config import Config
 
 DOCKER_TITLE = 'Krita ComfyUi'
 
@@ -18,12 +17,13 @@ class KritaComfyUi(DockWidget):
     def __init__(self):
         super().__init__()
         init_logging()
-        self.logger = logging.getLogger("krita_comfyui")
+        self.logger = getLogger("dock")
+
         self.setWindowTitle(DOCKER_TITLE)
         self.plugin_dir = os.path.abspath(os.path.dirname(__file__))
 
         # load configuration once
-        self.cfg = self.load_config() or {}
+        self.cfg = self.load_config()
         
         central_widget = QWidget()
         layout = QVBoxLayout(central_widget)
@@ -70,7 +70,8 @@ class KritaComfyUi(DockWidget):
         # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
-        self.progress_bar.setMaximumHeight(10)
+        self.progress_bar.setMaximumHeight(5)
+        self.progress_bar.setTextVisible(False)
         layout.addWidget(self.progress_bar)
 
         # Lista de miniaturas
@@ -91,14 +92,10 @@ class KritaComfyUi(DockWidget):
         self.setWidget(central_widget)
         self.logger.info("KritaComfyUi loaded")
 
-    def load_config(self):
+    def load_config(self) -> Config:
+        """Delegate configuration handling to the `Config` class."""
         cfg_path = Path(os.path.join(self.plugin_dir, self.CONFIG_FILE))
-        if cfg_path.exists():
-            try:
-                return json.loads(cfg_path.read_text())
-            except Exception as e:
-                QMessageBox.warning(self, "Error", f"Fallo al leer la configuración: {e}")
-        return None
+        return Config.load_or_create(cfg_path)
     
     def populate_workflow_combo(self):
         """Llena el combo con los workflows guardados en config.json
@@ -106,9 +103,8 @@ class KritaComfyUi(DockWidget):
         self.workflow_combo.clear()
 
         #Obtener la lista de workflows disponibles en el servidor
-        server_url = self.cfg.get("comfyui_url", "http://127.0.0.1:8188")
         try:
-            http_client = ComfyUIHttpClient(server_url)
+            http_client = ComfyHttpClient(self.cfg.comfyui_url)
             server_workflows = {
                 Path(item["path"]).name for item in http_client.get_workflows_list()
                 if "path" in item
@@ -118,8 +114,8 @@ class KritaComfyUi(DockWidget):
             server_workflows = set()
 
         #Filtrar la configuración local por los nombres que existen en el servidor
-        for wf in self.cfg.get("workflows", []):
-            name = wf.get("workflow_name")
+        for wf in self.cfg.workflows:
+            name = wf.workflow_name
             if not name:
                 continue
             if name in server_workflows:
@@ -142,7 +138,7 @@ class KritaComfyUi(DockWidget):
             return
 
         # Obtener URL del servidor desde la configuración (o default)
-        server_url = self.cfg.get("comfyui_url", "http://127.0.0.1:8188")
+        server_url = self.cfg.comfyui_url
 
          # Workflow a usar
         wf_name = self.workflow_combo.currentText()
@@ -260,4 +256,3 @@ class KritaComfyUi(DockWidget):
     # 'pass' means do not do anything
     def canvasChanged(self, canvas):
         pass
-

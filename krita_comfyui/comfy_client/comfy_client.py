@@ -5,12 +5,12 @@ from typing import Any, Callable, Dict, List
 from urllib.parse import urlparse
 from logging import Logger
 
-from .websockets.src.websockets.exceptions import ConnectionClosedOK
-from .websockets.src.websockets import ClientConnection, connect as websockets_connect
+from ..websockets.src.websockets.exceptions import ConnectionClosedOK
+from ..websockets.src.websockets import ClientConnection, connect as websockets_connect
 
-from .comfyui_http_client import ComfyUIHttpClient 
+from .comfy_http_client import ComfyHttpClient 
 
-class ComfyUIClient:
+class ComfyClient:
     """
     Cliente asíncrono para interactuar con el servidor ComfyUI (WS).
     """
@@ -18,10 +18,9 @@ class ComfyUIClient:
     def __init__(self, logger: Logger, server: str):        
         self.logger = logger        
         self.server_address = self.get_ws_host(server)
-        self.http_client = ComfyUIHttpClient(server)
+        self.http_client = ComfyHttpClient(server)
         self.client_id = str(uuid.uuid4())
         self.ws: ClientConnection | None = None
-        self._loop = asyncio.get_event_loop()
 
     async def __aenter__(self):
         await self._connect_ws()
@@ -43,7 +42,17 @@ class ComfyUIClient:
         self.logger.info(f"[ComfyUIClient] WS conectado como {self.client_id}")
     
     # ------------------------------------------------------------------ #
-    #  Lógica de recepción de imágenes vía WS
+    #  Limpieza
+    # ------------------------------------------------------------------ #
+
+    async def close(self) -> None:
+        """Cierra la conexión WebSocket."""
+        if self.ws:
+            await self.ws.close()
+            self.logger.info("[ComfyUIClient] WS cerrado")
+    
+    # ------------------------------------------------------------------ #
+    # WebSocket logic (uses the built‑in websockets module)
     # ------------------------------------------------------------------ #
 
     async def _receive_images(
@@ -56,15 +65,14 @@ class ComfyUIClient:
         progress_callback: Callable[[float], Any] | None = None
     ) -> Dict[str, List[bytes]]:
         """
-        Espera a que el servidor envíe las respuestas y recopila los datos binarios
-        que llegan desde el nodo `websocket_output_image`.
+        Receive images from the server for a given prompt.
         """
         output_images: Dict[str, List[bytes]] = {}
-        current_node: str | None = None
+        current_node: str | None = None        
+        cache_nodes = 0
 
-        async def receiver():
-            nonlocal current_node
-            cache_nodes = 0
+        async def _recv():
+            nonlocal current_node, cache_nodes
             try:
                 async for message in self.ws:
                     if isinstance(message, str):
@@ -100,7 +108,7 @@ class ComfyUIClient:
                 pass
 
         try:
-            await asyncio.wait_for(receiver(), timeout=timeout)
+            await asyncio.wait_for(_recv(), timeout=timeout)
         except asyncio.TimeoutError as exc:
             raise TimeoutError(f"Timed out waiting for images (prompt_id={prompt_id})") from exc
 
@@ -123,13 +131,3 @@ class ComfyUIClient:
         prompt_id = resp["prompt_id"]
 
         return await self._receive_images(prompt_id, len(workflow), output_node, timeout=timeout, progress_callback=progress_callback)
-
-    # ------------------------------------------------------------------ #
-    #  Limpieza
-    # ------------------------------------------------------------------ #
-
-    async def close(self) -> None:
-        """Cierra la conexión WebSocket."""
-        if self.ws:
-            await self.ws.close()
-            self.logger.info("[ComfyUIClient] WS cerrado")

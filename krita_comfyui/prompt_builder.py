@@ -1,8 +1,13 @@
+"""
+Builds the JSON payload to send to Comfy.
+"""
+
 import random
 from typing import Any, Dict
+from .config import Config 
 
 class PromptBuilder:
-    def __init__(self, cfg: dict):
+    def __init__(self, cfg: Config):
         self.cfg = cfg
 
     def build(
@@ -13,27 +18,12 @@ class PromptBuilder:
         seed: int | None = None
     ) -> dict:
         """
-        Builds the JSON payload to send to ComfyUI.
-
-        Parameters
-        ----------
-        wf_api : dict
-            The raw workflow API dictionary (already parsed from a .json file).
-        workflow_name : str
-            Name of the workflow that should be used.
-        base_prompt : str
-            Text prompt to inject into the workflow.
-        seed : int | None, optional
-            Seed value. If ``None`` a random one is generated.
-
-        Returns
-        -------
-        dict
-            workflow ready for the ComfyUI endpoint.
+        Modifies `wf_api` with the user prompt and optional seed.
+        Returns a **new** dictionary (original untouched).
         """
+
         # Find the workflow definition in the config
-        workflows = self.cfg.get("workflows", [])
-        wf_cfg = next((w for w in workflows if w["workflow_name"] == workflow_name), None)
+        wf_cfg = next((w for w in self.cfg.workflows if w.workflow_name == workflow_name), None)
         if wf_cfg is None:
             # No specific configuration – return the original payload unchanged.
             return wf_api
@@ -42,16 +32,14 @@ class PromptBuilder:
         payload = {k: v.copy() for k, v in wf_api.items()}
 
         # Inject prompt and seed values using node mapping from config
-        inputs_map = wf_cfg["inputs"]
+        inputs_map = wf_cfg.inputs
 
-        prompt_node_id = inputs_map["prompt"]["node_id"]
-        prompt_prop    = inputs_map["prompt"]["property"]
-        payload[prompt_node_id]["inputs"][prompt_prop] = base_prompt
+        prompt_input = inputs_map["prompt"]
+        payload[prompt_input.node_id]["inputs"][prompt_input.property] = base_prompt
 
         seed_val = seed if seed is not None else random.randint(1, 11768320141)
-        seed_node_id = inputs_map["seed"]["node_id"]
-        seed_prop    = inputs_map["seed"]["property"]
-        payload[seed_node_id]["inputs"][seed_prop] = seed_val
+        seed_input = inputs_map["seed"]
+        payload[seed_input.node_id]["inputs"][seed_input.property] = seed_val
 
         # Return JSON string
         return payload

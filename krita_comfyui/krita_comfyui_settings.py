@@ -1,11 +1,12 @@
-import os
-import re 
-import json
-import logging
+import re
 from pathlib import Path
 from krita import *
 from PyQt5.QtWidgets import *
-from .comfyui_http_client import ComfyUIHttpClient 
+
+from .config_logging import getLogger
+
+from .config import Config, WorkflowConfig, WorkflowInput
+from .comfy_client import ComfyHttpClient 
 
 class SettingsDialog(QDialog):
     CONFIG_FILE = "config.json"
@@ -13,132 +14,187 @@ class SettingsDialog(QDialog):
 
     def __init__(self, plugin_dir: str, parent=None):
         super().__init__(parent)
-        self.logger = logging.getLogger("krita_comfyui")
+        self.logger = getLogger("settings_dialog")
         self.setWindowTitle("Configuración del Plugin")
+        self.setMinimumSize(600, 350)
+
         self.plugin_dir = Path(plugin_dir)
+        self.http_client = None
+
+        self.is_loading = False
+        self.loaded_workflows = []
         self.wf_selectors = {}
 
         layout = QVBoxLayout(self)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
 
-        # --- Tab 1 – General (unchanged) ----------------------------------
         tab_general = QWidget(); tg_layout = QVBoxLayout(tab_general)
         self.comfyui_url_edit = QLineEdit()
         tg_layout.addWidget(QLabel("URL de ComfyUI:"))
         tg_layout.addWidget(self.comfyui_url_edit)
+        tg_layout.addStretch(1) 
         
         self.tabs.addTab(tab_general, "General")
 
-        # --- Tab 2 – Workflow --------------------------------------------
         self.tab_workflow = QWidget()
         wf_layout = QVBoxLayout(self.tab_workflow)
 
-        # 1️⃣ selector de workflows
+        self.loading_label = QLabel("Loading workflows …")
+        wf_layout.addWidget(self.loading_label)
+
         self.workflow_combo = QComboBox()
-        wf_layout.addWidget(QLabel("Seleccionar workflow:"))
+        self.workflow_label = QLabel("Seleccionar workflow:")
+        wf_layout.addWidget(self.workflow_label)
         wf_layout.addWidget(self.workflow_combo)
         self.workflow_combo.currentTextChanged.connect(
-            lambda _: self.populate_wf_form())   # <<<< load form on change
+            lambda _: self.populate_wf_form())
+        self._set_loading(False)
 
-        # 2️⃣ contenedor para los campos del workflow
         self.wf_fields_widget = QWidget()
         self.wf_fields_layout = QFormLayout(self.wf_fields_widget)
-        wf_layout.addWidget(self.wf_fields_widget)
+        wf_layout.addWidget(self.wf_fields_widget)        
+        wf_layout.addStretch(1)
         
         self.tabs.addTab(self.tab_workflow, "Workflow")
+        self.tabs.currentChanged.connect(self._on_tab_changed)
 
-        # --- Botones (unchanged) -----------------------------------------
-        btn_ok = QPushButton("Guardar")
-        btn_cancel = QPushButton("Cancelar")
-        btn_ok.clicked.connect(self.accepted)
+        self.btn_ok = QPushButton("Ok")
+        btn_cancel = QPushButton("Cancel")
+        self.btn_ok.clicked.connect(self.accepted)
         btn_cancel.clicked.connect(self.reject)
 
-        btn_layout = QVBoxLayout()
-        btn_layout.addWidget(btn_ok); btn_layout.addWidget(btn_cancel)
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch() 
+        btn_layout.addWidget(self.btn_ok); btn_layout.addWidget(btn_cancel)
         layout.addLayout(btn_layout)
 
-        # --- Cargar configuraciones actuales -----------------------------
-        self.load_config()        
+        self.load_config()
+    
+    def _set_loading(self, val: bool):
+        self.is_loading = val
+        self.loading_label.setVisible(val)
+        self.workflow_combo.setVisible(not val)
+        self.workflow_label.setVisible(not val)
 
     def _is_valid_url(self, url: str) -> bool:
-        """Comprueba que la URL tenga un esquema http/https y al menos un dominio."""
-        pattern = r'^(https?://)[^\s]+$'
-        return re.match(pattern, url.strip()) is not None
-
-    def _on_comfyui_url_changed(self):
-        """Activar/desactivar la pestaña Workflow según la validez y disponibilidad del URL."""
-        url = self.comfyui_url_edit.text().strip()
-        if not self._is_valid_url(url):
-            return
-        self.load_workflow_list()
-
-    def load_workflow_list(self):
-        """Populate the combo with workflow names returned by ComfyUI's API."""
-        try:
-            server_url = self.comfyui_url_edit.text().strip()
-            data = self._get_workflows_list(server_url)
-            wf_names = sorted(
-                Path(item["path"]).name for item in data if "path" in item
+        """
+        Validates an URL.
+        - Scheme must be http or https.
+        - Host can be:
+            • domain with at least one dot (e.g. example.com)
+            • IPv4 address
+            • literal 'localhost'
+        - Port is optional; if omitted, defaults are accepted.
+        """
+        pattern = re.compile(
+            r"""
+            ^(?P<scheme>http|https)://                       # http:// or https://
+            (?P<host>
+                (?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}             # domain like example.com
+                |
+                \d{1,3}(?:\.\d{1,3}){3}                      # IPv4 address
+                |
+                localhost                                    # localhost
             )
+            (?::(?P<port>\d{1,5}))?                          # optional :port
+            $""",
+            re.VERBOSE,
+        )
+
+        match = pattern.match(url.strip())
+        if not match:
+            return False
+
+        port_str = match.group("port")
+        if port_str is None:  # no explicit port provided
+            # Allow URLs without a port; defaults (80/443) will be handled by the client.
+            pass
+        else:
+            port = int(port_str)
+            if not (0 < port <= 65535):
+                return False
+
+        host = match.group("host")
+        # Only validate octets for real IPv4 addresses, skip 'localhost'
+        if re.match(r"^\d{1,3}(?:\.\d{1,3}){3}$", host):
+            parts = host.split(".")
+            if any(int(p) > 255 for p in parts):
+                return False
+
+        return True
+
+    def _on_tab_changed(self, index: int):
+        """Called whenever the active tab changes."""
+        if index == 1:
+            self._populate_workflow()
+    
+    def _populate_workflow(self):
+        try:
+            if not self.is_loading and len(self.loaded_workflows) == 0:
+                self._set_loading(True)
+                workflows = self._get_workflows()
+                self._populate_workflow_combo(workflows)
         except Exception as e:
             self.logger.exception(e)
             QMessageBox.warning(self, "Error",
-                                f"No se pudieron obtener los workflows: {e}")
-            wf_names = []
+                                f"No se pudieron obtener los workflows configurados: {e}")
+        finally:
+            self._set_loading(False)
 
+    def _get_workflows(self):
+        server_list = self._get_workflows_list(self.cfg.comfyui_url)
+        wf_names = sorted(
+            Path(item["path"]).name for item in server_list if "path" in item
+        )
+        cfg_map = {w.workflow_name: w for w in self.cfg.workflows}
+        results = [self._fetch_single_workflow(name, self.cfg.comfyui_url, cfg_map.get(name)) for name in wf_names]
+        return results
+
+    def _fetch_single_workflow(
+        self, name: str, server_url: str, matching_cfg=None
+    ):
+        missing_ref = False
+        saved = False
+        wf_data = None
+
+        if matching_cfg:
+            saved = True
+            try:
+                wf_data = self._get_workflow_api(server_url, name)
+            except Exception as e:
+                self.logger.exception(e)
+            for key, prop_cfg in matching_cfg.inputs.items():
+                node_id, inp_name = prop_cfg.node_id, prop_cfg.property
+                if key == "image_loader" and inp_name is None:
+                    continue
+                if (wf_data is None or inp_name not in wf_data.get(str(node_id), {}).get("inputs", {})):
+                    missing_ref = True
+                    break           
+
+        return (name, saved, missing_ref, wf_data)
+    
+    def _populate_workflow_combo(self, workflows):
+        """Populate the combo with workflow names returned by ComfyUI's API."""        
         self.workflow_combo.clear()
         self.workflow_combo.addItem("— No workflow selected —")  # default
 
         saved_icon = Krita.instance().icon("bookmarks")
         warn_icon = Krita.instance().icon("warning")
 
-        for name in wf_names:
-            self.logger.info(name)
+        self.loaded_workflows = workflows
+        for (name, isSaved, missing_ref, _) in workflows:
             item_index = self.workflow_combo.count()
             self.workflow_combo.addItem(name)
 
-            # Find the stored configuration for this workflow (if any)
-            matching_cfg = next(
-                (w for w in self.workflows_cfg if w.get("workflow_name") == name),
-                None,
-            )
-
             icon_to_use = None
-            font_bold = False
-
-            if matching_cfg:
-                self.logger.info(matching_cfg)
-                try:
-                    wf_data = self._get_workflow_api(
-                        self.comfyui_url_edit.text().strip(), name
-                    )
-                except Exception as e:
-                    self.logger.exception(e)
-                    wf_data = {}
-                self.logger.info(wf_data)
-
-                missing_ref = False
-                for key, prop_cfg in matching_cfg.get("inputs", {}).items():
-                    node_id, inp_name = prop_cfg.get("node_id"), prop_cfg.get(
-                        "property"
-                    )
-                    # ignorar image_loader solo si inp_name es None
-                    if (key == "image_loader" and inp_name is None):
-                        continue
-                    
-                    # Ensure key comparison is type‑agnostic (strings vs ints)
-                    if (inp_name not in wf_data.get(str(node_id), {}).get("inputs", {})):
-                        missing_ref = True
-                        break
-
-                font_bold = True  # bold for all stored workflows
+            if isSaved:
                 icon_to_use = warn_icon if missing_ref else saved_icon
 
             if icon_to_use:
                 self.workflow_combo.setItemIcon(item_index, icon_to_use)
 
-            if font_bold:
+            if isSaved:
                 model_item = self.workflow_combo.model().item(item_index)
                 if model_item:
                     fnt = model_item.font()
@@ -146,75 +202,64 @@ class SettingsDialog(QDialog):
                     model_item.setFont(fnt)
 
         self.workflow_combo.setCurrentIndex(0)
+            
+    def _on_comfyui_url_changed(self):
+        """Activar/desactivar la pestaña Workflow según la validez y disponibilidad del URL."""
+        url = self.comfyui_url_edit.text().strip()
+        if not self._is_valid_url(url):
+            self.comfyui_url_edit.setStyleSheet("border: 1px solid #320a0c;")
+            self.comfyui_url_edit.setToolTip("Invalid url format.")
+            self.btn_ok.setEnabled(False)
+            self.tabs.setTabEnabled(1, False)
+            return
+
+        self.comfyui_url_edit.setStyleSheet("")
+        self.comfyui_url_edit.setToolTip("")
+        self.btn_ok.setEnabled(True)
+        self.tabs.setTabEnabled(1, True)
+        self.cfg.comfyui_url = url
         
     def load_config(self):
         """Cargar config.json con el nuevo esquema."""
-        cfg_path = Path(os.path.join(self.plugin_dir, self.CONFIG_FILE))
-        if not cfg_path.exists():
-            return
-
-        try:
-            data = json.loads(cfg_path.read_text())
-            self.comfyui_url_edit.setText(data.get("comfyui_url", ""))
-
-            # Guardamos la lista completa para poder actualizarla más tarde
-            self.workflows_cfg = data.get("workflows", [])
-            
-            #eliminar workflows que ya no existen en el servidor ----
-            if self._is_valid_url(self.comfyui_url_edit.text().strip()):
-                server_workflows = set(
-                    Path(item["path"]).name for item in self._get_workflows_list(
-                        self.comfyui_url_edit.text().strip()
-                    ) if "path" in item
-                )
-                # Filtramos solo los que están en el servidor
-                self.workflows_cfg = [
-                    wf for wf in self.workflows_cfg if wf.get("workflow_name") in server_workflows
-                ]
-            
-            self.comfyui_url_edit.textChanged.connect(self._on_comfyui_url_changed)
-            self._on_comfyui_url_changed()
-        except Exception as e:
-            QMessageBox.warning(self, "Error",
-                                f"Fallo al leer la configuración: {e}")
+        cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
+        self.cfg = Config.load_or_create(cfg_path)            
+        self.comfyui_url_edit.setText(self.cfg.comfyui_url)            
+        self.comfyui_url_edit.textChanged.connect(self._on_comfyui_url_changed)
 
     def accepted(self):
-        """Guardar la nueva configuración siguiendo el esquema actualizado."""
-        cfg = {
-            "comfyui_url": self.comfyui_url_edit.text().strip()
-        }
+        """Persist the current dialog state into Config."""
+        cfg = Config(
+            comfyui_url=self.comfyui_url_edit.text().strip(),
+            workflows=list(self.cfg.workflows),  # keep existing entries
+        )
 
-        # --- Workflow ---------------------------------------------
         wf_name = self.workflow_combo.currentText()
         if wf_name and wf_name != "— No workflow selected —":
             inputs_cfg = {}
             for prop, (combo, opts) in self.wf_selectors.items():
                 idx = combo.currentIndex()
                 node_id, inp_name = opts[idx][1], opts[idx][2]
-                inputs_cfg[prop] = {"node_id": node_id,
-                                    "property": inp_name}
+                inputs_cfg[prop] = WorkflowInput(node_id=node_id, property=inp_name)
 
-            wf_obj = {
-                "workflow_name": wf_name,
-                "inputs": inputs_cfg
-            }
+            wf_obj = WorkflowConfig(
+                workflow_name=wf_name,
+                inputs=inputs_cfg
+            )
 
-            # Reemplazamos o añadimos la entrada en el array
+            # Replace or append the entry in cfg.workflows
             replaced = False
-            for i, existing in enumerate(self.workflows_cfg):
-                if existing.get("workflow_name") == wf_name:
-                    self.workflows_cfg[i] = wf_obj
+            for i, existing in enumerate(cfg.workflows):
+                if existing.workflow_name == wf_name:
+                    cfg.workflows[i] = wf_obj
                     replaced = True
                     break
             if not replaced:
-                self.workflows_cfg.append(wf_obj)
+                cfg.workflows.append(wf_obj)
 
-        cfg["workflows"] = self.workflows_cfg
-
-        # --- Guardar -------------------------------------------------
+        # Persist to disk
         try:
-            cfg_path = Path(os.path.join(self.plugin_dir, self.CONFIG_FILE))
-            cfg_path.write_text(json.dumps(cfg, indent=2))
+            cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
+            cfg.save(cfg_path)
             self.accept()
         except Exception as e:
             QMessageBox.critical(self, "Error",
@@ -231,9 +276,12 @@ class SettingsDialog(QDialog):
                     widget.deleteLater()
             return
 
-        try:
-            server_url = self.comfyui_url_edit.text().strip()
-            wf_data = self._get_workflow_api(server_url, wf_name)
+        try:            
+            wf_data = next((w[-1] for w in self.loaded_workflows if
+                                w[0] == wf_name ), {})
+            if not wf_data:
+                server_url = self.comfyui_url_edit.text().strip()
+                wf_data = self._get_workflow_api(server_url, wf_name)
         except Exception as e:
             self.logger.exception(e)
             QMessageBox.warning(self, "Error", f"Cannot load workflow: {e}")
@@ -263,14 +311,14 @@ class SettingsDialog(QDialog):
             combo.addItems([opt[0] for opt in options])
 
             # pre‑seleccionar la opción guardada si existe
-            wf_obj = next((w for w in self.workflows_cfg if
-                            w.get("workflow_name") == wf_name), {})
-            saved = wf_obj.get("inputs", {}).get(prop)
+            wf_obj = next((w for w in self.cfg.workflows if
+                            w.workflow_name == wf_name), None)
+            saved = wf_obj.inputs.get(prop) if wf_obj else None
             if saved:
                 try:
                     idx = next(i for i, o in enumerate(options)
-                                if o[1] == saved["node_id"] and
-                                    o[2] == saved["property"])
+                                if o[1] == saved.node_id and
+                                    o[2] == saved.property)
                     combo.setCurrentIndex(idx)
                 except StopIteration:
                     combo.setCurrentIndex(0)
@@ -279,10 +327,13 @@ class SettingsDialog(QDialog):
             self.wf_selectors[prop] = (combo, options)
            
         
+    def get_http_client(self, server_url: str):
+        if self.http_client is None or self.http_client.server_address != server_url:
+            self.http_client = ComfyHttpClient(server_url)
+        return self.http_client
+            
     def _get_workflows_list(self, server_url: str) -> dict:
-        http_client = ComfyUIHttpClient(server_url)
-        return http_client.get_workflows_list()
+        return self.get_http_client(server_url).get_workflows_list()
                     
     def _get_workflow_api(self, server_url: str, name: str) -> dict:
-        http_client = ComfyUIHttpClient(server_url)
-        return http_client.get_workflow_api(name)
+        return self.get_http_client(server_url).get_workflow_api(name)
