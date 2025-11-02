@@ -1,20 +1,22 @@
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 import asyncio
 from  logging import Logger
 
-from .config import Config
-from .comfy_client import ComfyClient, ComfyHttpClient
-from .prompt_builder import PromptBuilder
-from .comfy_client import find_output_node
+from ..config import Config
+from ..comfy_client import ComfyClient, ComfyHttpClient
+from ..prompt_builder import PromptBuilder
+from ..comfy_client import find_output_node
 
-class ComfyWorker(QObject):
+class ComfyWorkerSignals(QObject):
     finished = pyqtSignal(dict)
     error    = pyqtSignal(str)
     progress = pyqtSignal(float)
 
+class ComfyWorker(QRunnable):
     def __init__(self, logger: Logger, server_url: str, workflow_name: str,
-                 prompt_text: str, cfg: Config, seed: int | None = None, parent=None):
-        super().__init__(parent)
+                 prompt_text: str, cfg: Config, seed: int | None = None):
+        super().__init__()
+        self.signals = ComfyWorkerSignals()
         self.logger = logger
         self.server_url = server_url
         self.workflow_name = workflow_name
@@ -49,12 +51,12 @@ class ComfyWorker(QObject):
                     workflow=prompt,
                     output_node=node_id,
                     timeout=5 * 60,
-                    progress_callback=lambda p: self.progress.emit(p),
+                    progress_callback=lambda p: self.signals.progress.emit(p),
                 )
-            self.finished.emit(images)
+            self.signals.finished.emit(images)
             self.logger.info(f"[ComfyWorker] Emit images: {len(images)}")
         except Exception as exc:
-            self.error.emit(str(exc))
+            self.signals.error.emit(str(exc))
             self.logger.exception(f"[ComfyWorker] Error {exc}")
 
     def run(self):

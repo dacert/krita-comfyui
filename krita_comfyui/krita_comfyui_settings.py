@@ -2,9 +2,11 @@ import re
 from pathlib import Path
 from krita import *
 from PyQt5.QtWidgets import *
+from PyQt5.QtCore import QThreadPool
+
+from .workers import Worker
 
 from .config_logging import getLogger
-
 from .config import Config, WorkflowConfig, WorkflowInput
 from .comfy_client import ComfyHttpClient 
 
@@ -17,7 +19,8 @@ class SettingsDialog(QDialog):
         self.logger = getLogger("settings_dialog")
         self.setWindowTitle("Configuración del Plugin")
         self.setMinimumSize(600, 350)
-
+        
+        self.threadpool = QThreadPool()
         self.plugin_dir = Path(plugin_dir)
         self.http_client = None
 
@@ -71,6 +74,14 @@ class SettingsDialog(QDialog):
 
         self.load_config()
     
+    def _run_worker(self, fn, *args, on_success=None, on_error=None):
+        worker = Worker(fn, *args)
+        if on_success:
+            worker.signals.finished.connect(on_success)
+        if on_error:
+            worker.signals.error.connect(on_error)
+        self.threadpool.start(worker)
+        
     def _set_loading(self, val: bool):
         self.is_loading = val
         self.loading_label.setVisible(val)
@@ -130,17 +141,14 @@ class SettingsDialog(QDialog):
             self._populate_workflow()
     
     def _populate_workflow(self):
-        try:
-            if not self.is_loading and len(self.loaded_workflows) == 0:
-                self._set_loading(True)
-                workflows = self._get_workflows()
-                self._populate_workflow_combo(workflows)
-        except Exception as e:
-            self.logger.exception(e)
-            QMessageBox.warning(self, "Error",
-                                f"No se pudieron obtener los workflows configurados: {e}")
-        finally:
-            self._set_loading(False)
+        if not self.is_loading and len(self.loaded_workflows) == 0:
+            self._set_loading(True)
+            self._run_worker(
+                self._get_workflows,
+                on_success=lambda d: (self._populate_workflow_combo(d), self._set_loading(False)),
+                on_error=lambda: (QMessageBox.warning(self, "Error", f"No se pudieron obtener los workflows configurados"),
+                    self._set_loading(False))
+            )
 
     def _get_workflows(self):
         server_list = self._get_workflows_list(self.cfg.comfyui_url)
@@ -325,7 +333,6 @@ class SettingsDialog(QDialog):
 
             self.wf_fields_layout.addRow(QLabel(prop + ":"), combo)
             self.wf_selectors[prop] = (combo, options)
-           
         
     def get_http_client(self, server_url: str):
         if self.http_client is None or self.http_client.server_address != server_url:

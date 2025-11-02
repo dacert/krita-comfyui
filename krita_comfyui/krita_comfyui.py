@@ -1,12 +1,12 @@
 from krita import *
 from PyQt5.Qt import *
-from PyQt5.QtCore import QThread, pyqtSlot
+from PyQt5.QtCore import QThreadPool, pyqtSlot
 import os
 from pathlib import Path
 from .krita_comfyui_settings import SettingsDialog
 from .comfy_client import ComfyHttpClient 
 from .config_logging import init_logging, getLogger
-from .worker import ComfyWorker
+from .workers.comfy_worker import ComfyWorker
 from .config import Config
 
 DOCKER_TITLE = 'Krita ComfyUi'
@@ -21,6 +21,8 @@ class KritaComfyUi(DockWidget):
 
         self.setWindowTitle(DOCKER_TITLE)
         self.plugin_dir = os.path.abspath(os.path.dirname(__file__))
+
+        self.threadpool = QThreadPool()
 
         # load configuration once
         self.cfg = self.load_config()
@@ -148,9 +150,7 @@ class KritaComfyUi(DockWidget):
             QMessageBox.warning(self, "Error", "No se ha seleccionado workflow.")
             return
 
-        # Crear el worker y un hilo
-        self.thread = QThread()
-        self.worker = ComfyWorker(
+        worker = ComfyWorker(
             logger=self.logger,
             server_url=server_url,
             workflow_name=wf_name,
@@ -158,18 +158,10 @@ class KritaComfyUi(DockWidget):
             cfg=self.cfg
         )
 
-        # Conectar señales
-        self.worker.moveToThread(self.thread)
-        self.thread.started.connect(self.worker.run)
-        self.worker.progress.connect(self.on_progress)
-        self.worker.finished.connect(self.on_images_ready)   # slot que añadirá los items
-        self.worker.error.connect(self.on_worker_error)
-        self.worker.finished.connect(self.thread.quit)
-        self.worker.finished.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
-
-        # Empezar el hilo
-        self.thread.start()
+        worker.signals.finished.connect(self.on_images_ready)
+        worker.signals.error.connect(self.on_worker_error)
+        worker.signals.progress.connect(self.on_progress)
+        self.threadpool.start(worker)
 
     @pyqtSlot(float)
     def on_progress(self, percent: float):
