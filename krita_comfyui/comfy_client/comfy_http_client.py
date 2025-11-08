@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 class ComfyHttpClient:
     """
-    Http Cliente para interactuar con el servidor ComfyUI (HTTP API).
+    HTTP Client for interacting with the ComfyUI server (HTTP API).
     """
     TIMEOUT_SECONDS = 5
 

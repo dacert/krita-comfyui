@@ -32,13 +32,13 @@ class KritaComfyUi(DockWidget):
 
         workflow_layout = QHBoxLayout()
 
-        # Combo para elegir workflow (solo los configurados)
+        # Combo to choose workflow (only the configured ones)
         self.workflow_combo = QComboBox()
         layout.addWidget(QLabel("Workflow:"))
         workflow_layout.addWidget(self.workflow_combo, stretch=1)
         self.populate_workflow_combo()
         
-        # Botón “Configuración”
+        # “Settings” button
         self.settings_btn = QToolButton()
         settings_icon = Krita.instance().icon("configure")
         self.settings_btn.setIcon(settings_icon)
@@ -47,7 +47,7 @@ class KritaComfyUi(DockWidget):
 
         layout.addLayout(workflow_layout)
 
-        # Caja de texto
+        # Text box
         prompt_container = QWidget()
         prompt_layout = QHBoxLayout(prompt_container)
         prompt_layout.setContentsMargins(0, 0, 0, 0)
@@ -58,11 +58,11 @@ class KritaComfyUi(DockWidget):
         line_height = font_metrics.lineSpacing()
         self.prompt_box.setMinimumHeight(line_height * 3)                
         self.prompt_box.setMaximumHeight(line_height * 5)
-        self.prompt_box.setPlaceholderText("Describe el contenido que quieres crear")
+        self.prompt_box.setPlaceholderText("Describe the content you want to create")
         prompt_layout.addWidget(self.prompt_box)
         layout.addWidget(prompt_container)
 
-        # Botón “Descargar”
+        # Generate button
         self.create_btn = QPushButton("Generar")
         create_icon = Krita.instance().icon("tools-wizard")
         self.create_btn.setIcon(create_icon)
@@ -76,15 +76,15 @@ class KritaComfyUi(DockWidget):
         self.progress_bar.setTextVisible(False)
         layout.addWidget(self.progress_bar)
 
-        # Lista de miniaturas
+        # Thumbnail list
         self.thumbnail_list = QListWidget()
         self.thumbnail_list.setViewMode(QListWidget.IconMode)
         self.thumbnail_list.setIconSize(QSize(128, 128))
         self.thumbnail_list.setResizeMode(QListWidget.Adjust)
         layout.addWidget(self.thumbnail_list)
 
-        # Botón “Añadir a Krita”
-        self.apply_btn = QPushButton("Aplicar")
+        # “Apply to Krita” button
+        self.apply_btn = QPushButton("Apply")
         apply_icon = Krita.instance().icon("dialog-ok")
         self.apply_btn.setIcon(apply_icon)
         layout.addWidget(self.apply_btn)
@@ -100,11 +100,11 @@ class KritaComfyUi(DockWidget):
         return Config.load_or_create(cfg_path)
     
     def populate_workflow_combo(self):
-        """Llena el combo con los workflows guardados en config.json
-        que realmente existen en el servidor ComfyUI."""
+        """Fill the combo with workflows stored in config.json
+        that actually exist on the Comfy server."""
         self.workflow_combo.clear()
 
-        #Obtener la lista de workflows disponibles en el servidor
+        # Obtain the list of available workflows on the server
         try:
             http_client = ComfyHttpClient(self.cfg.comfyui_url)
             server_workflows = {
@@ -112,10 +112,10 @@ class KritaComfyUi(DockWidget):
                 if "path" in item
             }
         except Exception as e:
-            self.logger.warning(f"[KritaComfyUi] Error al consultar workflows: {e}")
+            self.logger.warning(f"[KritaComfyUi] Error querying workflows: {e}")
             server_workflows = set()
 
-        #Filtrar la configuración local por los nombres que existen en el servidor
+        # Filter local config by names that exist on the server
         for wf in self.cfg.workflows:
             name = wf.workflow_name
             if not name:
@@ -123,32 +123,35 @@ class KritaComfyUi(DockWidget):
             if name in server_workflows:
                 self.workflow_combo.addItem(name)
             else:
-                self.logger.info(f"[KritaComfyUi] Workflow {name} no encontrado en el servidor; omitido.")
+                self.logger.info(f"[KritaComfyUi] Workflow {name} not found on the server; omitted.")
 
     def open_settings_dialog(self):
         dlg = SettingsDialog(self.plugin_dir, parent=self)
         if dlg.exec_():
-            # If the dialog was accepted we reload settings or take action here
-            self.logger.info("[Settings] Cambios guardados")
+            self.cfg = self.load_config()
+            self.populate_workflow_combo()
+            self.logger.info("[Settings] Changes saved")
             
     def conmfyui_promt(self):
-        """Este método ahora solo prepara el worker y lo lanza."""
+        """Prepares the worker and starts it."""
         prompt = self.prompt_box.toPlainText().strip()
         if not prompt:
-            self.logger.error("[KritaComfyUi] La caja está vacía.")
-            QMessageBox.warning(self, "Error", "La caja está vacía.")
+            self.logger.error("[KritaComfyUi] The box is empty.")
+            QMessageBox.warning(self, "Error", "The box is empty.")
             return
 
-        # Obtener URL del servidor desde la configuración (o default)
+        # Get server URL from configuration (or default)
         server_url = self.cfg.comfyui_url
 
-         # Workflow a usar
+        # Workflow to use
         wf_name = self.workflow_combo.currentText()
-        self.logger.info(f"[KritaComfyUi] Se ha seleccionado el workflow {wf_name}.")
+        self.logger.info(f"[KritaComfyUi] Selected workflow {wf_name}")
         if not wf_name:
-            self.logger.error("[KritaComfyUi] No se ha seleccionado workflow.")
-            QMessageBox.warning(self, "Error", "No se ha seleccionado workflow.")
+            self.logger.error("[KritaComfyUi] No workflow selected.")
+            QMessageBox.warning(self, "Error", "No workflow selected.")
             return
+        
+        self.create_btn.setEnabled(False)
 
         worker = ComfyWorker(
             logger=self.logger,
@@ -161,23 +164,25 @@ class KritaComfyUi(DockWidget):
         worker.signals.finished.connect(self.on_images_ready)
         worker.signals.error.connect(self.on_worker_error)
         worker.signals.progress.connect(self.on_progress)
+        
         self.threadpool.start(worker)
 
     @pyqtSlot(float)
     def on_progress(self, percent: float):
-        """Actualiza una barra de progreso o muestra un mensaje."""
-        self.logger.info(f"Progreso: {percent:.2f}%")
+        """Update a progress bar or display a message."""
+        self.logger.info(f"Progress: {percent:.2f}%")
         self.progress_bar.setValue(int(percent))
 
     @pyqtSlot(dict)
     def on_images_ready(self, images_dict: dict):
-        """Slot ejecutado en el hilo principal. Añade los thumbnails."""
+        """Slot executed in the main thread. Adds thumbnails."""
         self.progress_bar.setValue(0)
+        self.create_btn.setEnabled(True)
         for node_name, imgs in images_dict.items():
             for idx, img_bytes in enumerate(imgs):
                 pixmap = QPixmap()
                 if not pixmap.loadFromData(img_bytes):
-                    self.logger.info(f"Imagen no válida: {node_name}_{idx}")
+                    self.logger.info(f"Invalid image: {node_name}_{idx}")
                     continue
 
                 thumb = pixmap.scaled(128, 128,
@@ -186,19 +191,20 @@ class KritaComfyUi(DockWidget):
 
                 icon = QIcon(thumb)
                 item = QListWidgetItem(icon, f"{self.prompt_box.toPlainText().strip()}_{idx}.png")
-                # Guardar los datos originales
-                item.setData(Qt.UserRole, img_bytes)          # bytes de la imagen
+                # Store original data
+                item.setData(Qt.UserRole, img_bytes)          # image bytes
                 item.setData(Qt.UserRole + 1, pixmap.toImage())   # QImage
 
                 self.thumbnail_list.addItem(item)
 
-        self.logger.info("Generación completada")
+        self.logger.info("Generation completed")
 
     @pyqtSlot(str)
     def on_worker_error(self, msg: str):
-        """Manejo de errores (puedes mostrar un mensaje al usuario)."""
+        """Error handling."""
         self.progress_bar.setValue(0)
-        self.logger.error(f"[KritaComfyUi error]: {msg}")
+        self.create_btn.setEnabled(True)
+        self.logger.error(f"[KritaComfyUi] error: {msg}")
         QMessageBox.warning(self, "Error", msg)
 
     def on_add_to_krita_clicked(self):
@@ -206,20 +212,20 @@ class KritaComfyUi(DockWidget):
 
         selected_items = self.thumbnail_list.selectedItems()
         if not selected_items:
-            self.logger.warning("[DockTextButton] Selecciona una miniatura primero.")
+            self.logger.warning("[KritaComfyUi] Select a thumbnail first.")
             return
 
         item = selected_items[0]
         qimage = item.data(Qt.UserRole + 1)
 
         if not isinstance(qimage, QImage):
-            self.logger.warning("[DockTextButton] Los datos recuperados no son un QImage.")
+            self.logger.warning("[KritaComfyUi] Retrieved data is not a QImage.")
             return
         
         if qimage.format() != QImage.Format_ARGB32:
             qimage = qimage.convertToFormat(QImage.Format_ARGB32)
 
-        layer_name = f"Imagen {qimage.width()}x{qimage.height()}"
+        layer_name = f"Image {qimage.width()}x{qimage.height()}"
         new_layer = doc.createNode(layer_name, "paintLayer")
         doc.rootNode().addChildNode(new_layer, None)
 
@@ -234,14 +240,10 @@ class KritaComfyUi(DockWidget):
         #doc.setActiveNode(node)
         doc.refreshProjection()
 
-        self.logger.warning(f"[DockTextButton] Capa creada: {layer_name}")
-
+        self.logger.warning(f"[KritaComfyUi] Layer created: {layer_name}")
 
     def closeEvent(self, event):
-        if hasattr(self, 'thread') and self.thread.isRunning():
-            self.worker.close()          # si implementas un método `close` en el worker
-            self.thread.quit()
-            self.thread.wait()
+        self.threadpool.clear()
         super().closeEvent(event)
 
     # notifies when views are added or removed

@@ -25,7 +25,7 @@ class ComfyWorker(QRunnable):
         self.seed         = seed
 
     async def _run_async(self):
-        """Cuerpo asíncrono que se ejecuta dentro del hilo."""        
+        """Async body that runs inside the thread."""
         new_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(new_loop)
 
@@ -34,9 +34,9 @@ class ComfyWorker(QRunnable):
 
         try:
             async with client as c:
-                # Obtener workflow desde el servidor y convertirlo
+                # Retrieve workflow from the server and convert it
                 wf_api = http_client.get_workflow_api(self.workflow_name)
-                # Construir prompt usando la configuración guardada
+                # Build prompt using the saved configuration
                 prompt_builder = PromptBuilder(self.cfg)
                 prompt = prompt_builder.build(wf_api, self.workflow_name, self.prompt_text, self.seed)
 
@@ -44,7 +44,7 @@ class ComfyWorker(QRunnable):
                 if output_node is not None:
                     node_id, _ = output_node
                 else:
-                    raise Exception("No se encontró ningún nodo de tipo 'SaveImageWebsocket' para el output.")
+                    raise Exception("No 'SaveImageWebsocket' output node found.")
                 self.logger.info(f"[ComfyWorker] Output_node: {node_id}")
 
                 images = await c.run_workflow(
@@ -60,6 +60,6 @@ class ComfyWorker(QRunnable):
             self.logger.exception(f"[ComfyWorker] Error {exc}")
 
     def run(self):
-        """Método que se conecta al hilo de Qt."""   
+        """Method that connects to the Qt thread."""
         asyncio.run(self._run_async())
 

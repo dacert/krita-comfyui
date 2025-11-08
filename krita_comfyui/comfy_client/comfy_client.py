@@ -12,7 +12,7 @@ from .comfy_http_client import ComfyHttpClient
 
 class ComfyClient:
     """
-    Cliente asíncrono para interactuar con el servidor ComfyUI (WS).
+    Asynchronous client to interact with the ComfyUI server (WS).
     """
 
     def __init__(self, logger: Logger, server: str):        
@@ -34,22 +34,22 @@ class ComfyClient:
         return f"ws://{parsed.hostname}:{parsed.port}" if parsed.port else parsed.hostname
 
     # ------------------------------------------------------------------ #
-    #  Conexión WebSocket
+    #  WebSocket Connection
     # ------------------------------------------------------------------ #
     async def _connect_ws(self) -> None:
         url = f"{self.server_address}/ws?clientId={self.client_id}"
         self.ws = await websockets_connect(url, max_size=2**30, ping_timeout=60)
-        self.logger.info(f"[ComfyUIClient] WS conectado como {self.client_id}")
+        self.logger.info(f"[ComfyClient]  WS connected as {self.client_id}")
     
     # ------------------------------------------------------------------ #
-    #  Limpieza
+    #  Cleanup
     # ------------------------------------------------------------------ #
 
     async def close(self) -> None:
-        """Cierra la conexión WebSocket."""
+        """Close the WebSocket connection."""
         if self.ws:
             await self.ws.close()
-            self.logger.info("[ComfyUIClient] WS cerrado")
+            self.logger.info("[ComfyClient] WS closed")
     
     # ------------------------------------------------------------------ #
     # WebSocket logic (uses the built‑in websockets module)

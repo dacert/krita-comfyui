@@ -17,7 +17,7 @@ class SettingsDialog(QDialog):
     def __init__(self, plugin_dir: str, parent=None):
         super().__init__(parent)
         self.logger = getLogger("settings_dialog")
-        self.setWindowTitle("Configuración del Plugin")
+        self.setWindowTitle("Settings")
         self.setMinimumSize(600, 350)
         
         self.threadpool = QThreadPool()
@@ -34,7 +34,7 @@ class SettingsDialog(QDialog):
 
         tab_general = QWidget(); tg_layout = QVBoxLayout(tab_general)
         self.comfyui_url_edit = QLineEdit()
-        tg_layout.addWidget(QLabel("URL de ComfyUI:"))
+        tg_layout.addWidget(QLabel("ComfyUI URL:"))
         tg_layout.addWidget(self.comfyui_url_edit)
         tg_layout.addStretch(1) 
         
@@ -47,11 +47,11 @@ class SettingsDialog(QDialog):
         wf_layout.addWidget(self.loading_label)
 
         self.workflow_combo = QComboBox()
-        self.workflow_label = QLabel("Seleccionar workflow:")
+        self.workflow_label = QLabel("Select Workflow:")
         wf_layout.addWidget(self.workflow_label)
         wf_layout.addWidget(self.workflow_combo)
         self.workflow_combo.currentTextChanged.connect(
-            lambda _: self.populate_wf_form())
+            lambda _: self._populate_wf_form())
         self._set_loading(False)
 
         self.wf_fields_widget = QWidget()
@@ -64,7 +64,7 @@ class SettingsDialog(QDialog):
 
         self.btn_ok = QPushButton("Ok")
         btn_cancel = QPushButton("Cancel")
-        self.btn_ok.clicked.connect(self.accepted)
+        self.btn_ok.clicked.connect(self._accepted)
         btn_cancel.clicked.connect(self.reject)
 
         btn_layout = QHBoxLayout()
@@ -72,7 +72,7 @@ class SettingsDialog(QDialog):
         btn_layout.addWidget(self.btn_ok); btn_layout.addWidget(btn_cancel)
         layout.addLayout(btn_layout)
 
-        self.load_config()
+        self._load_config()
     
     def _run_worker(self, fn, *args, on_success=None, on_error=None):
         worker = Worker(fn, *args)
@@ -141,7 +141,7 @@ class SettingsDialog(QDialog):
             self._populate_workflow()
     
     def _populate_workflow(self):
-        if not self.is_loading and len(self.loaded_workflows) == 0:
+        if not self.is_loading:
             self._set_loading(True)
             self._run_worker(
                 self._get_workflows,
@@ -212,11 +212,11 @@ class SettingsDialog(QDialog):
         self.workflow_combo.setCurrentIndex(0)
             
     def _on_comfyui_url_changed(self):
-        """Activar/desactivar la pestaña Workflow según la validez y disponibilidad del URL."""
+        """Enable/disable the Workflow tab based on URL validity and availability."""
         url = self.comfyui_url_edit.text().strip()
         if not self._is_valid_url(url):
             self.comfyui_url_edit.setStyleSheet("border: 1px solid #320a0c;")
-            self.comfyui_url_edit.setToolTip("Invalid url format.")
+            self.comfyui_url_edit.setToolTip("Invalid URL format.")
             self.btn_ok.setEnabled(False)
             self.tabs.setTabEnabled(1, False)
             return
@@ -227,55 +227,15 @@ class SettingsDialog(QDialog):
         self.tabs.setTabEnabled(1, True)
         self.cfg.comfyui_url = url
         
-    def load_config(self):
-        """Cargar config.json con el nuevo esquema."""
+    def _load_config(self):
+        """Load config.json with the new schema."""
         cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
         self.cfg = Config.load_or_create(cfg_path)            
         self.comfyui_url_edit.setText(self.cfg.comfyui_url)            
         self.comfyui_url_edit.textChanged.connect(self._on_comfyui_url_changed)
-
-    def accepted(self):
-        """Persist the current dialog state into Config."""
-        cfg = Config(
-            comfyui_url=self.comfyui_url_edit.text().strip(),
-            workflows=list(self.cfg.workflows),  # keep existing entries
-        )
-
-        wf_name = self.workflow_combo.currentText()
-        if wf_name and wf_name != "— No workflow selected —":
-            inputs_cfg = {}
-            for prop, (combo, opts) in self.wf_selectors.items():
-                idx = combo.currentIndex()
-                node_id, inp_name = opts[idx][1], opts[idx][2]
-                inputs_cfg[prop] = WorkflowInput(node_id=node_id, property=inp_name)
-
-            wf_obj = WorkflowConfig(
-                workflow_name=wf_name,
-                inputs=inputs_cfg
-            )
-
-            # Replace or append the entry in cfg.workflows
-            replaced = False
-            for i, existing in enumerate(cfg.workflows):
-                if existing.workflow_name == wf_name:
-                    cfg.workflows[i] = wf_obj
-                    replaced = True
-                    break
-            if not replaced:
-                cfg.workflows.append(wf_obj)
-
-        # Persist to disk
-        try:
-            cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
-            cfg.save(cfg_path)
-            self.accept()
-        except Exception as e:
-            QMessageBox.critical(self, "Error",
-                                 f"Fallo al guardar la configuración: {e}")
-
-    # --------------------------------------------------------------------
-    def populate_wf_form(self):
-        """Construir el formulario con los combos usando la API en vez de archivos."""
+    
+    def _populate_wf_form(self):
+        """Build the form with combo boxes using the API instead of files."""
         wf_name = self.workflow_combo.currentText()
         if not wf_name or wf_name == "— No workflow selected —":
             while self.wf_fields_layout.count():
@@ -288,8 +248,7 @@ class SettingsDialog(QDialog):
             wf_data = next((w[-1] for w in self.loaded_workflows if
                                 w[0] == wf_name ), {})
             if not wf_data:
-                server_url = self.comfyui_url_edit.text().strip()
-                wf_data = self._get_workflow_api(server_url, wf_name)
+                wf_data = self._get_workflow_api(self.cfg.comfyui_url, wf_name)
         except Exception as e:
             self.logger.exception(e)
             QMessageBox.warning(self, "Error", f"Cannot load workflow: {e}")
@@ -306,7 +265,7 @@ class SettingsDialog(QDialog):
                         "image_loader", "num_image_sampler"]:
             combo = QComboBox()
             options = []
-            options.append(("", None, None))  # valor nulo
+            options.append(("", None, None))  # null value
 
             for node_id, node in wf_data.items():
                 if isinstance(node, dict) and "inputs" in node:
@@ -318,7 +277,7 @@ class SettingsDialog(QDialog):
 
             combo.addItems([opt[0] for opt in options])
 
-            # pre‑seleccionar la opción guardada si existe
+            # pre‑select the option if exist
             wf_obj = next((w for w in self.cfg.workflows if
                             w.workflow_name == wf_name), None)
             saved = wf_obj.inputs.get(prop) if wf_obj else None
@@ -334,13 +293,82 @@ class SettingsDialog(QDialog):
             self.wf_fields_layout.addRow(QLabel(prop + ":"), combo)
             self.wf_selectors[prop] = (combo, options)
         
-    def get_http_client(self, server_url: str):
+         # --- Update / Add button -----------------------------------
+        btn_update = QPushButton("Add/Update")
+        btn_update.clicked.connect(self._update_or_add_workflow_cfg)        
+
+        # --- Delete button --------------------------------------
+        btn_delete = QPushButton("Remove")
+        self._btn_delete_cfg = btn_delete
+        btn_delete.clicked.connect(self._delete_workflow_cfg)
+        btn_delete.setEnabled(wf_obj is not None)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch() 
+        btn_layout.addWidget(btn_update); btn_layout.addWidget(btn_delete)
+        self.wf_fields_layout.addRow(QLabel(), btn_layout)
+    
+    def _update_or_add_workflow_cfg(self):
+        """Create or update the current workflow configuration in `self.cfg`."""
+        wf_name = self.workflow_combo.currentText()
+        if wf_name == "— No workflow selected —":
+            QMessageBox.warning(self, "Error", "No workflow selected.")
+            return
+
+        inputs_cfg = {}
+        for prop, (combo, opts) in self.wf_selectors.items():
+            idx = combo.currentIndex()
+            node_id, inp_name = opts[idx][1], opts[idx][2]
+            if (node_id is None or inp_name is None) and prop != "image_loader":
+                QMessageBox.warning(self, "Validation error", f"{prop} can´t be empty.")
+                return
+            inputs_cfg[prop] = WorkflowInput(node_id=node_id, property=inp_name)
+
+        wf_obj = WorkflowConfig(
+            workflow_name=wf_name,
+            inputs=inputs_cfg
+        )
+
+        replaced = False
+        for i, existing in enumerate(self.cfg.workflows):
+            if existing.workflow_name == wf_name:
+                self.cfg.workflows[i] = wf_obj
+                replaced = True
+                break
+        if not replaced:
+            self.cfg.workflows.append(wf_obj)
+        
+        self._populate_workflow()
+   
+    def _delete_workflow_cfg(self):
+        """Remove the currently selected workflow configuration from `self.cfg`."""
+        wf_name = self.workflow_combo.currentText()
+        if wf_name == "— No workflow selected —":
+            return
+
+        self.cfg.workflows = [
+            w for w in self.cfg.workflows if w.workflow_name != wf_name
+        ]
+
+        self._populate_workflow()
+    
+    def _accepted(self):
+        """Persist the current dialog state into Config."""
+        try:
+            cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
+            self.cfg.save(cfg_path)   # only save the existing self.cfg
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Error",
+                                 f"Failed to save configuration: {e}")
+        
+    def _get_http_client(self, server_url: str):
         if self.http_client is None or self.http_client.server_address != server_url:
             self.http_client = ComfyHttpClient(server_url)
         return self.http_client
             
     def _get_workflows_list(self, server_url: str) -> dict:
-        return self.get_http_client(server_url).get_workflows_list()
+        return self._get_http_client(server_url).get_workflows_list()
                     
     def _get_workflow_api(self, server_url: str, name: str) -> dict:
-        return self.get_http_client(server_url).get_workflow_api(name)
+        return self._get_http_client(server_url).get_workflow_api(name)
