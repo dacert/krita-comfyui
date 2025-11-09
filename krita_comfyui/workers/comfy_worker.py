@@ -1,16 +1,17 @@
 from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 import asyncio
-from  logging import Logger
-
+from logging import Logger
 from ..config import Config
 from ..comfy_client import ComfyClient, ComfyHttpClient
 from ..prompt_builder import PromptBuilder
 from ..comfy_client import find_output_node
 
+
 class ComfyWorkerSignals(QObject):
     finished = pyqtSignal(dict)
-    error    = pyqtSignal(str)
+    error = pyqtSignal(str)
     progress = pyqtSignal(float)
+
 
 class ComfyWorker(QRunnable):
     def __init__(self, logger: Logger, server_url: str, workflow_name: str,
@@ -20,9 +21,9 @@ class ComfyWorker(QRunnable):
         self.logger = logger
         self.server_url = server_url
         self.workflow_name = workflow_name
-        self.prompt_text  = prompt_text
+        self.prompt_text = prompt_text
         self.cfg = cfg
-        self.seed         = seed
+        self.seed = seed
 
     async def _run_async(self):
         """Async body that runs inside the thread."""
@@ -38,13 +39,16 @@ class ComfyWorker(QRunnable):
                 wf_api = http_client.get_workflow_api(self.workflow_name)
                 # Build prompt using the saved configuration
                 prompt_builder = PromptBuilder(self.cfg)
-                prompt = prompt_builder.build(wf_api, self.workflow_name, self.prompt_text, self.seed)
+                prompt = prompt_builder.build(
+                    wf_api, self.workflow_name, self.prompt_text, self.seed
+                )
 
                 output_node = find_output_node(wf_api)
                 if output_node is not None:
                     node_id, _ = output_node
                 else:
-                    raise Exception("No 'SaveImageWebsocket' output node found.")
+                    raise Exception(
+                        "No 'SaveImageWebsocket' output node found.")
                 self.logger.info(f"[ComfyWorker] Output_node: {node_id}")
 
                 images = await c.run_workflow(
@@ -62,4 +66,3 @@ class ComfyWorker(QRunnable):
     def run(self):
         """Method that connects to the Qt thread."""
         asyncio.run(self._run_async())
-

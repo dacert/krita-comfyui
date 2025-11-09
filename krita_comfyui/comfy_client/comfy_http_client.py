@@ -1,8 +1,9 @@
 import json
 from .workflow_utils import to_api_format
-import urllib.parse
+from urllib.parse import urlencode
 import urllib.request
 from urllib.parse import quote
+
 
 class ComfyHttpClient:
     """
@@ -13,10 +14,13 @@ class ComfyHttpClient:
     def __init__(self, server: str = "http://127.0.0.1:8188"):
         self.server_address = server.rstrip("/")
         self._object_info_cache: dict | None = None
-      
+
     def get_workflows_list(self) -> dict:
-        query = {"dir": "workflows", "recurse": True, "split": False, "full_info": True}
-        url = f"{self.server_address}/api/userdata?{urllib.parse.urlencode(query)}"
+        query = {
+            "dir": "workflows", "recurse": True,
+            "split": False, "full_info": True
+        }
+        url = f"{self.server_address}/api/userdata?{urlencode(query)}"
         return self._fetch_json(url)
 
     def get_workflow(self, name: str) -> dict:
@@ -26,7 +30,7 @@ class ComfyHttpClient:
     def get_object_info(self) -> dict:
         if self._object_info_cache is not None:
             return self._object_info_cache
-        
+
         url = f"{self.server_address}/api/object_info"
         data = self._fetch_json(url)
 
@@ -42,7 +46,7 @@ class ComfyHttpClient:
         payload = {"prompt": prompt, "client_id": client_id}
         url = f"{self.server_address}/prompt"
         return self._post_json(url, payload)
-    
+
     def get_settings(self) -> dict:
         url = f"{self.server_address}/api/settings"
         return self._fetch_json(url, 2)

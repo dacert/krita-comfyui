@@ -36,8 +36,10 @@ LOGGING_CONFIG = {
     }
 }
 
+
 def init_logging() -> None:
     logging.config.dictConfig(LOGGING_CONFIG)
+
 
 def getLogger(name: str) -> Logger:
     return logging.getLogger("krita_comfyui").getChild(name)

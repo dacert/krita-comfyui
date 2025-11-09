@@ -4,7 +4,8 @@ Builds the JSON payload to send to Comfy.
 
 import random
 from typing import Any, Dict
-from .config import Config 
+from .config import Config
+
 
 class PromptBuilder:
     def __init__(self, cfg: Config):
@@ -23,9 +24,15 @@ class PromptBuilder:
         """
 
         # Find the workflow definition in the config
-        wf_cfg = next((w for w in self.cfg.workflows if w.workflow_name == workflow_name), None)
+        wf_cfg = next(
+            (
+                w for w in self.cfg.workflows
+                if w.workflow_name == workflow_name
+            ), None
+        )
         if wf_cfg is None:
-            # No specific configuration – return the original payload unchanged.
+            # No specific configuration
+            # return the original payload unchanged.
             return wf_api
 
         # Copy the API dict to avoid mutating the caller's data
@@ -35,7 +42,8 @@ class PromptBuilder:
         inputs_map = wf_cfg.inputs
 
         prompt_input = inputs_map["prompt"]
-        payload[prompt_input.node_id]["inputs"][prompt_input.property] = base_prompt
+        prompt_inputs = payload[prompt_input.node_id]["inputs"]
+        prompt_inputs[prompt_input.property] = base_prompt
 
         seed_val = seed if seed is not None else random.randint(1, 11768320141)
         seed_input = inputs_map["seed"]

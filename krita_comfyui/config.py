@@ -10,6 +10,7 @@ from .config_logging import getLogger
 
 DEFAULT_URL = "http://localhost:8188"
 
+
 @dataclass
 class WorkflowInput:
     node_id: str
@@ -36,7 +37,8 @@ class Config:
             WorkflowConfig(
                 workflow_name=wf["workflow_name"],
                 inputs={
-                    k: WorkflowInput(**v) for k, v in wf.get("inputs", {}).items()
+                    k: WorkflowInput(**v)
+                    for k, v in wf.get("inputs", {}).items()
                 },
             )
             for wf in data.get("workflows", [])
