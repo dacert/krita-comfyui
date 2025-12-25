@@ -25,6 +25,7 @@ class WorkflowConfig:
 
 @dataclass
 class Config:
+    logger: bool
     comfyui_url: str
     workflows: List[WorkflowConfig] = field(default_factory=list)
 
@@ -43,12 +44,15 @@ class Config:
             )
             for wf in data.get("workflows", [])
         ]
-        return cls(comfyui_url=data["comfyui_url"], workflows=workflows)
+        return cls(logger=data["logger"],
+                   comfyui_url=data["comfyui_url"],
+                   workflows=workflows)
 
     def save(self, path: Path):
         """Persist configuration to disk."""
         # Serialise dataclasses back into plain dicts
         serialised = {
+            "logger": self.logger,
             "comfyui_url": self.comfyui_url,
             "workflows": [
                 {
@@ -82,17 +86,18 @@ class Config:
             try:
                 return cls.load(path)
             except Exception as e:
-                logger.warning(
+                logger.error(
                     f"Failed to load config at {path}: {e}"
                 )
 
         default_cfg = cls(
+            logger=False,
             comfyui_url=DEFAULT_URL,
             workflows=[],
         )
         try:
             default_cfg.save(path)
-            logger.info(f"Created default config at {path}")
+            logger.debug(f"Created default config at {path}")
         except Exception as e:
             logger.error(
                 f"Could not write default config to {path}: {e}"

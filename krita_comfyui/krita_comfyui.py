@@ -26,11 +26,10 @@ class KritaComfyUi(DockWidget):
 
     def __init__(self):
         super().__init__()
-        init_logging()
-        self.logger = getLogger("dock")
         self.setWindowTitle(DOCKER_TITLE)
-
+        init_logging()
         self.plugin_dir = os.path.abspath(os.path.dirname(__file__))
+        self._reset_config()
 
         self.threadpool = QThreadPool()
 
@@ -39,6 +38,11 @@ class KritaComfyUi(DockWidget):
         self._create_widgets()
         self._connect_signals()
         self._load_initial_state()
+
+    def _reset_config(self):
+        self.cfg = self._load_config()
+        init_logging(self.cfg.logger)
+        self.logger = getLogger("dock")
 
     def _create_widgets(self):
         central_widget = QWidget()
@@ -112,9 +116,8 @@ class KritaComfyUi(DockWidget):
 
     def _load_initial_state(self):
         """Read configuration, populate combo and log."""
-        self.cfg = self._load_config()
         self.populate_workflow_combo()
-        self.logger.info("KritaComfyUi loaded")
+        self.logger.debug("KritaComfyUi loaded")
 
     def _load_config(self) -> Config:
         """Delegate configuration handling to the `Config` class."""
@@ -135,7 +138,7 @@ class KritaComfyUi(DockWidget):
                 if "path" in item
             }
         except Exception as e:
-            self.logger.warning(
+            self.logger.debug(
                 f"Error querying workflows: {e}")
             server_workflows = set()
 
@@ -147,15 +150,15 @@ class KritaComfyUi(DockWidget):
             if name in server_workflows:
                 self.workflow_combo.addItem(name)
             else:
-                self.logger.info(
+                self.logger.debug(
                     f"Workflow {name} not found on the server; omitted.")
 
     def open_settings_dialog(self):
         dlg = SettingsDialog(self.plugin_dir, parent=self)
         if dlg.exec_():
-            self.cfg = self._load_config()
+            self._reset_config()
             self.populate_workflow_combo()
-            self.logger.info("[Settings] Changes saved")
+            self.logger.debug("[Settings] Changes saved")
 
     def conmfyui_promt(self):
         """Prepares the worker and starts it."""
@@ -170,7 +173,7 @@ class KritaComfyUi(DockWidget):
 
         # Workflow to use
         wf_name = self.workflow_combo.currentText()
-        self.logger.info(f"Selected workflow {wf_name}")
+        self.logger.debug(f"Selected workflow {wf_name}")
         if not wf_name:
             self.logger.error("No workflow selected.")
             QMessageBox.warning(self, "Error", "No workflow selected.")
@@ -197,7 +200,7 @@ class KritaComfyUi(DockWidget):
     @pyqtSlot(float)
     def on_progress(self, percent: float):
         """Update a progress bar or display a message."""
-        self.logger.info(f"Progress: {percent:.2f}%")
+        self.logger.debug(f"Progress: {percent:.2f}%")
         self.progress_bar.setValue(int(percent))
 
     @pyqtSlot(dict)
@@ -209,7 +212,7 @@ class KritaComfyUi(DockWidget):
             for idx, img_bytes in enumerate(imgs):
                 qimage = QImage()
                 if not qimage.loadFromData(img_bytes):
-                    self.logger.info(f"Invalid image: {node_name}_{idx}")
+                    self.logger.debug(f"Invalid image: {node_name}_{idx}")
                     continue
 
                 qimage, thumb = self._get_image_and_thumb(qimage)
@@ -222,7 +225,7 @@ class KritaComfyUi(DockWidget):
 
                 self.thumbnail_list.addItem(item)
 
-        self.logger.info("Generation completed")
+        self.logger.debug("Generation completed")
 
     def _get_image_and_thumb(self, qimage: QImage):
         new_image = qimage.convertToFormat(QImage.Format_ARGB32)
@@ -260,14 +263,14 @@ class KritaComfyUi(DockWidget):
 
         selected_items = self.thumbnail_list.selectedItems()
         if not selected_items:
-            self.logger.warning("Select a thumbnail first.")
+            self.logger.debug("Select a thumbnail first.")
             return
 
         item = selected_items[0]
         qimage = item.data(Qt.UserRole + 1)
 
         if not isinstance(qimage, QImage):
-            self.logger.warning(
+            self.logger.debug(
                 "Retrieved data is not a QImage.")
             return
 
@@ -318,7 +321,7 @@ class KritaComfyUi(DockWidget):
         chanel_size = new_layer.channels()[0].channelSize()
         if (qimage.sizeInBytes() !=
                 4 * chanel_size * doc.width() * doc.height()):
-            self.logger.info("Image size is not correct!")
+            self.logger.debug("Image size is not correct!")
             qimage = qimage.scaled(
                 QSize(doc.width(), doc.height()), Qt.KeepAspectRatio)
 
@@ -327,7 +330,7 @@ class KritaComfyUi(DockWidget):
         new_layer.setPixelData(QByteArray(ptr.asstring()),
                                0, 0, qimage.width(), qimage.height())
 
-        self.logger.warning(f"Layer created: {name}")
+        self.logger.debug(f"Layer created: {name}")
 
     def active_document(self):
         return Krita.instance().activeDocument()

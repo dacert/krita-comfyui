@@ -58,7 +58,7 @@ class ComfyWorker(QRunnable):
                 else:
                     raise Exception(
                         "No 'SaveImageWebsocket' output node found.")
-                self.logger.info(f"[ComfyWorker] Output_node: {node_id}")
+                self.logger.debug(f"[ComfyWorker] Output_node: {node_id}")
 
                 images = await c.run_workflow(
                     workflow=prompt,
@@ -68,7 +68,7 @@ class ComfyWorker(QRunnable):
                     progress_callback=lambda p: self.signals.progress.emit(p),
                 )
             self.signals.finished.emit(images)
-            self.logger.info(f"[ComfyWorker] Emit images: {len(images)}")
+            self.logger.debug(f"[ComfyWorker] Emit images: {len(images)}")
         except Exception as exc:
             self.signals.error.emit(str(exc))
             self.logger.exception(f"[ComfyWorker] Error {exc}")

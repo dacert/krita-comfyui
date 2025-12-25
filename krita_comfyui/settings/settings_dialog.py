@@ -4,7 +4,7 @@ from krita import Krita
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QPushButton,
     QHBoxLayout, QWidget, QLineEdit, QLabel,
-    QComboBox, QMessageBox
+    QComboBox, QMessageBox, QCheckBox
 )
 from PyQt5.QtCore import QThreadPool
 
@@ -70,7 +70,10 @@ class SettingsDialog(QDialog):
         self.comfyui_url_edit = QLineEdit()
         tg_layout.addWidget(QLabel("ComfyUI URL:"))
         tg_layout.addWidget(self.comfyui_url_edit)
+
         tg_layout.addStretch(1)
+        self.debug_level = QCheckBox("Debug level logger")
+        tg_layout.addWidget(self.debug_level)
 
         self.tabs.addTab(tab_general, "General")
 
@@ -267,10 +270,16 @@ class SettingsDialog(QDialog):
         self.tabs.setTabEnabled(1, True)
         self.cfg.comfyui_url = url
 
+    def _on_debug_level_change(self):
+        self.cfg.logger = self.debug_level.isChecked()
+
     def _load_config(self):
         """Load config.json with the new schema."""
         cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
         self.cfg = Config.load_or_create(cfg_path)
+
+        self.debug_level.setChecked(self.cfg.logger)
+        self.debug_level.stateChanged.connect(self._on_debug_level_change)
         self.comfyui_url_edit.setText(self.cfg.comfyui_url)
         self.comfyui_url_edit.textChanged.connect(self._on_comfyui_url_changed)
 
