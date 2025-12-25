@@ -275,3 +275,4 @@ krita_comfyui/websocket_client/websocket/tests/test_websocket.py
 krita_comfyui/websocket_client/websocket/tests/data/header01.txt
 krita_comfyui/websocket_client/websocket/tests/data/header02.txt
 krita_comfyui/websocket_client/websocket/tests/data/header03.txt
+krita_comfyui/config.json

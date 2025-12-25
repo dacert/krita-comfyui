@@ -1,4 +1,5 @@
-# config_logging.py
+
+from logging import Logger
 import logging.config
 from pathlib import Path
 
@@ -35,5 +36,10 @@ LOGGING_CONFIG = {
     }
 }
 
+
 def init_logging() -> None:
     logging.config.dictConfig(LOGGING_CONFIG)
+
+
+def getLogger(name: str) -> Logger:
+    return logging.getLogger("krita_comfyui").getChild(name)
