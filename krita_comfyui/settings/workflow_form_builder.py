@@ -80,7 +80,9 @@ class WorkflowFormBuilder:
                 except StopIteration:
                     combo.setCurrentIndex(0)
 
-            self.layout.addRow(QLabel(prop + ":"), combo)
+            required = prop not in self.OPTIONAL_PROPERTIES
+            self.layout.addRow(
+                QLabel(f"{'*' if required else ''}{prop}:"), combo)
             self.selectors[prop] = (combo, options)
 
     def add_action_buttons(

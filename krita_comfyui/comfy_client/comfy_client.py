@@ -40,28 +40,17 @@ class ComfyClient:
         return (f"ws://{parsed.hostname}:{parsed.port}"
                 if parsed.port else parsed.hostname)
 
-    # ------------------------------------------------------------------ #
-    #  WebSocket Connection
-    # ------------------------------------------------------------------ #
     async def _connect_ws(self) -> None:
         url = f"{self.server_address}/ws?clientId={self.client_id}"
         self.ws = await websockets_connect(
             url, max_size=2**30, ping_timeout=60)
-        self.logger.info(f"[ComfyClient]  WS connected as {self.client_id}")
-
-    # ------------------------------------------------------------------ #
-    #  Cleanup
-    # ------------------------------------------------------------------ #
+        self.logger.debug(f"[ComfyClient]  WS connected as {self.client_id}")
 
     async def close(self) -> None:
         """Close the WebSocket connection."""
         if self.ws:
             await self.ws.close()
-            self.logger.info("[ComfyClient] WS closed")
-
-    # ------------------------------------------------------------------ #
-    # WebSocket logic (uses the built‑in websockets module)
-    # ------------------------------------------------------------------ #
+            self.logger.debug("[ComfyClient] WS closed")
 
     async def _receive_images(
         self,
@@ -153,37 +142,12 @@ class ComfyClient:
 
         mask_bytes = qimage_to_bytes(mask_qimg)
 
-        # self.http_client.upload_file("mask", image_prompt.mask,
-        #                              mask_bytes,
-        #                              subfolder="clipspace",
-        #                              ref=uploaded["name"],
-        #                              ref_subfolder=uploaded["subfolder"],
-        #                              overwrite=True)
-
-        # upload_file("image", image_prompt.paint,
-        #             image_prompt.image_bytes,
-        #             subfolder="clipspace",
-        #             ref=uploaded["name"],
-        #             ref_subfolder=uploaded["subfolder"],
-        #             overwrite=True)
-
-        # painted = upload_file("image", image_prompt.painted,
-        #                       image_prompt.image_bytes,
-        #                       subfolder="clipspace",
-        #                       ref=uploaded["name"],
-        #                       ref_subfolder=uploaded["subfolder"],
-        #                       overwrite=True)
-
         self.http_client.upload_file("mask", image_prompt.painted_mask,
                                      mask_bytes,
                                      subfolder="clipspace",
                                      ref=uploaded["name"],
                                      ref_subfolder=uploaded["subfolder"],
                                      overwrite=True)
-
-    # ------------------------------------------------------------------ #
-    #  Public API
-    # ------------------------------------------------------------------ #
 
     async def run_workflow(
         self,
