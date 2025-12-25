@@ -18,6 +18,7 @@ from ..comfy_client import ComfyHttpClient
 class SettingsDialog(QDialog):
     CONFIG_FILE = "config.json"
     WORKFLOWS_DIR = Path("workflows")  # relative to plugin_dir
+    OPTIONAL_PROPERTIES = WorkflowFormBuilder.OPTIONAL_PROPERTIES
 
     def __init__(self, plugin_dir: str, parent=None):
         super().__init__(parent)
@@ -50,14 +51,14 @@ class SettingsDialog(QDialog):
         self._add_workflow_tab()
 
         # Buttons ---------------------------------------------------------
-        btn_ok = QPushButton("Ok")
+        self.btn_ok = QPushButton("Ok")
         btn_cancel = QPushButton("Cancel")
-        btn_ok.clicked.connect(self._accepted)
+        self.btn_ok.clicked.connect(self._accepted)
         btn_cancel.clicked.connect(self.reject)
 
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        btn_layout.addWidget(btn_ok)
+        btn_layout.addWidget(self.btn_ok)
         btn_layout.addWidget(btn_cancel)
         layout.addLayout(btn_layout)
 
@@ -210,7 +211,7 @@ class SettingsDialog(QDialog):
                 self.logger.exception(e)
             for key, prop_cfg in matching_cfg.inputs.items():
                 node_id, inp_name = prop_cfg.node_id, prop_cfg.property
-                if key == "image_loader" and inp_name is None:
+                if key in self.OPTIONAL_PROPERTIES and inp_name is None:
                     continue
                 if (wf_data is None or inp_name not in
                         wf_data.get(str(node_id), {}).get("inputs", {})):
@@ -322,7 +323,7 @@ class SettingsDialog(QDialog):
             idx = combo.currentIndex()
             node_id, inp_name = opts[idx][1], opts[idx][2]
             if ((node_id is None or inp_name is None) and
-                    prop != "image_loader"):
+                    prop not in self.OPTIONAL_PROPERTIES):
                 QMessageBox.warning(self, "Validation error",
                                     f"{prop} can´t be empty.")
                 return

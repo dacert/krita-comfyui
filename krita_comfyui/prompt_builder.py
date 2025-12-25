@@ -16,6 +16,7 @@ class PromptBuilder:
         wf_api: Dict[str, Any],
         workflow_name: str,
         base_prompt: str,
+        image_input_name: str | None = None,
         seed: int | None = None
     ) -> dict:
         """
@@ -48,6 +49,12 @@ class PromptBuilder:
         seed_val = seed if seed is not None else random.randint(1, 11768320141)
         seed_input = inputs_map["seed"]
         payload[seed_input.node_id]["inputs"][seed_input.property] = seed_val
+
+        image_input = inputs_map["image_loader"]
+        if image_input_name and image_input.node_id:
+            image_input = inputs_map["image_loader"]
+            prompt_inputs = payload[image_input.node_id]["inputs"]
+            prompt_inputs[image_input.property] = image_input_name
 
         # Return JSON string
         return payload

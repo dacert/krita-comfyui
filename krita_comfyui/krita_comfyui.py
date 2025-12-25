@@ -7,14 +7,16 @@ from PyQt5.QtWidgets import (
     QLabel, QComboBox, QMessageBox, QProgressBar,
     QListWidget, QListWidgetItem
 )
-from PyQt5.QtCore import QThreadPool, pyqtSlot, QSize, QByteArray, Qt
+from PyQt5.QtCore import QThreadPool, pyqtSlot, QSize, QByteArray, Qt, QRect
 from PyQt5.QtGui import QImage, QIcon, QPixmap
 from pathlib import Path
+
 from .settings import SettingsDialog
-from .comfy_client import ComfyHttpClient
+from .comfy_client import ComfyHttpClient, ImagePrompt
 from .config_logging import init_logging, getLogger
 from .workers import ComfyWorker
 from .config import Config
+from .comfy_client import reduce_alpha_by_selection
 
 DOCKER_TITLE = 'Krita ComfyUi'
 
@@ -31,6 +33,8 @@ class KritaComfyUi(DockWidget):
         self.plugin_dir = os.path.abspath(os.path.dirname(__file__))
 
         self.threadpool = QThreadPool()
+
+        self.image_prompt = None
 
         self._create_widgets()
         self._connect_signals()
@@ -174,12 +178,14 @@ class KritaComfyUi(DockWidget):
 
         self.create_btn.setEnabled(False)
 
+        self.image_prompt = self.build_image_prompt()
         worker = ComfyWorker(
             logger=self.logger,
             server_url=server_url,
             workflow_name=wf_name,
             prompt_text=prompt,
-            cfg=self.cfg
+            cfg=self.cfg,
+            image_prompt=self.image_prompt
         )
 
         worker.signals.finished.connect(self.on_images_ready)
@@ -201,25 +207,45 @@ class KritaComfyUi(DockWidget):
         self.create_btn.setEnabled(True)
         for node_name, imgs in images_dict.items():
             for idx, img_bytes in enumerate(imgs):
-                pixmap = QPixmap()
-                if not pixmap.loadFromData(img_bytes):
+                qimage = QImage()
+                if not qimage.loadFromData(img_bytes):
                     self.logger.info(f"Invalid image: {node_name}_{idx}")
                     continue
 
-                thumb = pixmap.scaled(128, 128,
-                                      aspectRatioMode=Qt.KeepAspectRatio,
-                                      transformMode=Qt.SmoothTransformation)
+                qimage, thumb = self._get_image_and_thumb(qimage)
 
                 icon = QIcon(thumb)
                 item = QListWidgetItem(
                     icon, f"{self.prompt_box.toPlainText().strip()}_{idx}.png")
                 # Store original data
-                item.setData(Qt.UserRole, img_bytes)          # image bytes
-                item.setData(Qt.UserRole + 1, pixmap.toImage())   # QImage
+                item.setData(Qt.UserRole + 1, qimage)         # QImage
 
                 self.thumbnail_list.addItem(item)
 
         self.logger.info("Generation completed")
+
+    def _get_image_and_thumb(self, qimage: QImage):
+        new_image = qimage.convertToFormat(QImage.Format_ARGB32)
+        new_image = new_image.scaled(
+            QSize(self.image_prompt.width,
+                  self.image_prompt.height),
+            Qt.KeepAspectRatio)
+
+        if self.image_prompt.has_selection_data():
+            sel_bytes = self.image_prompt.inverted_sel_bytes
+            new_image = reduce_alpha_by_selection(
+                new_image, self.image_prompt.width,
+                self.image_prompt.height, sel_bytes)
+
+            sel_rect = self.image_prompt.sel_rect
+            pixmap = QPixmap.fromImage(new_image.copy(sel_rect))
+        else:
+            pixmap = QPixmap.fromImage(new_image)
+
+        thumb = pixmap.scaled(128, 128,
+                              aspectRatioMode=Qt.KeepAspectRatio,
+                              transformMode=Qt.SmoothTransformation)
+        return (new_image, thumb)
 
     @pyqtSlot(str)
     def on_worker_error(self, msg: str):
@@ -230,7 +256,7 @@ class KritaComfyUi(DockWidget):
         QMessageBox.warning(self, "Error", msg)
 
     def add_to_krita(self):
-        doc = Krita.instance().activeDocument()
+        doc = self.active_document()
 
         selected_items = self.thumbnail_list.selectedItems()
         if not selected_items:
@@ -245,11 +271,48 @@ class KritaComfyUi(DockWidget):
                 "Retrieved data is not a QImage.")
             return
 
+        layer_name = f"Image {qimage.width()}x{qimage.height()}"
+        self.add_image_layer(layer_name, qimage)
+
+        # doc.setActiveNode(node)
+        doc.refreshProjection()
+
+    def build_image_prompt(self):
+        doc = self.active_document()
+        if not doc:
+            return None
+
+        active_node = doc.activeNode()
+        if not active_node:
+            return None
+
+        w, h = doc.width(), doc.height()
+        image_bytes = active_node.pixelData(0, 0, w, h)
+
+        if not image_bytes:
+            return None
+
+        sel = doc.selection()
+        sel_bytes = sel.pixelData(0, 0, w, h) if sel else None
+        sel_rect = QRect(sel.x(), sel.y(), sel.width(),
+                         sel.height()) if sel else None
+
+        inverted_sel_bytes = None
+        if sel_bytes:
+            cloned_sel = sel.duplicate()
+            cloned_sel.invert()
+            inverted_sel_bytes = cloned_sel.pixelData(0, 0, w, h)
+
+        return ImagePrompt(width=w, height=h, sel_rect=sel_rect,
+                           image_bytes=image_bytes, sel_bytes=sel_bytes,
+                           inverted_sel_bytes=inverted_sel_bytes)
+
+    def add_image_layer(self, name: str, qimage: QImage):
         if qimage.format() != QImage.Format_ARGB32:
             qimage = qimage.convertToFormat(QImage.Format_ARGB32)
 
-        layer_name = f"Image {qimage.width()}x{qimage.height()}"
-        new_layer = doc.createNode(layer_name, "paintLayer")
+        doc = self.active_document()
+        new_layer = doc.createNode(name, "paintLayer")
         doc.rootNode().addChildNode(new_layer, None)
 
         chanel_size = new_layer.channels()[0].channelSize()
@@ -264,10 +327,10 @@ class KritaComfyUi(DockWidget):
         new_layer.setPixelData(QByteArray(ptr.asstring()),
                                0, 0, qimage.width(), qimage.height())
 
-        # doc.setActiveNode(node)
-        doc.refreshProjection()
+        self.logger.warning(f"Layer created: {name}")
 
-        self.logger.warning(f"Layer created: {layer_name}")
+    def active_document(self):
+        return Krita.instance().activeDocument()
 
     def closeEvent(self, event):
         self.threadpool.clear()

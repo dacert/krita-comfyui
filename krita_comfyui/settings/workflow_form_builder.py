@@ -24,6 +24,12 @@ class WorkflowFormBuilder:
         "num_image_sampler",
     ]
 
+    OPTIONAL_PROPERTIES = [
+        "image_loader",
+        "num_image_sampler",
+        "negative_prompt",
+    ]
+
     def __init__(self, parent: QWidget):
         self.parent = parent
         self.layout = QFormLayout(parent)

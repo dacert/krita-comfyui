@@ -1,6 +1,7 @@
 import asyncio
 import json
 import uuid
+from PyQt5.QtGui import QImage
 from typing import Any, Callable, Dict, List
 from urllib.parse import urlparse
 from logging import Logger
@@ -10,7 +11,9 @@ from ..websockets.src.websockets import (
     ClientConnection, connect as websockets_connect
 )
 
+from .image_prompt import ImagePrompt
 from .comfy_http_client import ComfyHttpClient
+from .image_utils import qimage_to_bytes, reduce_alpha_by_selection
 
 
 class ComfyClient:
@@ -127,6 +130,57 @@ class ComfyClient:
 
         return output_images
 
+    def _image_uploader(self, image_prompt: ImagePrompt):
+        if not image_prompt.has_image_data():
+            return
+
+        qimg = QImage(image_prompt.image_bytes, image_prompt.width,
+                      image_prompt.height, QImage.Format_ARGB32)
+        image_bytes = qimage_to_bytes(qimg)
+
+        uploaded = self.http_client.upload_file("image", image_prompt.image,
+                                                image_bytes,
+                                                subfolder="", overwrite=True)
+
+        if not image_prompt.has_selection_data():
+            return
+
+        mask_qimg = reduce_alpha_by_selection(
+            qimg,
+            image_prompt.width,
+            image_prompt.height,
+            image_prompt.sel_bytes)
+
+        mask_bytes = qimage_to_bytes(mask_qimg)
+
+        # self.http_client.upload_file("mask", image_prompt.mask,
+        #                              mask_bytes,
+        #                              subfolder="clipspace",
+        #                              ref=uploaded["name"],
+        #                              ref_subfolder=uploaded["subfolder"],
+        #                              overwrite=True)
+
+        # upload_file("image", image_prompt.paint,
+        #             image_prompt.image_bytes,
+        #             subfolder="clipspace",
+        #             ref=uploaded["name"],
+        #             ref_subfolder=uploaded["subfolder"],
+        #             overwrite=True)
+
+        # painted = upload_file("image", image_prompt.painted,
+        #                       image_prompt.image_bytes,
+        #                       subfolder="clipspace",
+        #                       ref=uploaded["name"],
+        #                       ref_subfolder=uploaded["subfolder"],
+        #                       overwrite=True)
+
+        self.http_client.upload_file("mask", image_prompt.painted_mask,
+                                     mask_bytes,
+                                     subfolder="clipspace",
+                                     ref=uploaded["name"],
+                                     ref_subfolder=uploaded["subfolder"],
+                                     overwrite=True)
+
     # ------------------------------------------------------------------ #
     #  Public API
     # ------------------------------------------------------------------ #
@@ -136,9 +190,13 @@ class ComfyClient:
         workflow: dict,
         output_node: str,
         *,
+        image_prompt: ImagePrompt | None = None,
         timeout: float | None = None,
         progress_callback: Callable[[float], Any] | None = None
     ) -> Dict[str, List[bytes]]:
+
+        if image_prompt:
+            self._image_uploader(image_prompt)
 
         resp = self.http_client.queue_prompt(workflow, self.client_id)
         prompt_id = resp["prompt_id"]

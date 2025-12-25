@@ -1,6 +1,8 @@
 from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 import asyncio
 from logging import Logger
+
+from krita_comfyui.comfy_client.image_prompt import ImagePrompt
 from ..config import Config
 from ..comfy_client import ComfyClient, ComfyHttpClient
 from ..prompt_builder import PromptBuilder
@@ -15,7 +17,8 @@ class ComfyWorkerSignals(QObject):
 
 class ComfyWorker(QRunnable):
     def __init__(self, logger: Logger, server_url: str, workflow_name: str,
-                 prompt_text: str, cfg: Config, seed: int | None = None):
+                 prompt_text: str, cfg: Config, seed: int | None = None,
+                 image_prompt: ImagePrompt | None = None):
         super().__init__()
         self.signals = ComfyWorkerSignals()
         self.logger = logger
@@ -24,6 +27,7 @@ class ComfyWorker(QRunnable):
         self.prompt_text = prompt_text
         self.cfg = cfg
         self.seed = seed
+        self.image_prompt = image_prompt
 
     async def _run_async(self):
         """Async body that runs inside the thread."""
@@ -39,8 +43,13 @@ class ComfyWorker(QRunnable):
                 wf_api = http_client.get_workflow_api(self.workflow_name)
                 # Build prompt using the saved configuration
                 prompt_builder = PromptBuilder(self.cfg)
+
+                image_imput_name = None
+                if self.image_prompt:
+                    image_imput_name = self.image_prompt.get_input_name()
                 prompt = prompt_builder.build(
-                    wf_api, self.workflow_name, self.prompt_text, self.seed
+                    wf_api, self.workflow_name, self.prompt_text,
+                    image_imput_name, self.seed
                 )
 
                 output_node = find_output_node(wf_api)
@@ -54,6 +63,7 @@ class ComfyWorker(QRunnable):
                 images = await c.run_workflow(
                     workflow=prompt,
                     output_node=node_id,
+                    image_prompt=self.image_prompt,
                     timeout=5 * 60,
                     progress_callback=lambda p: self.signals.progress.emit(p),
                 )
