@@ -16,9 +16,16 @@ class ComfyWorkerSignals(QObject):
 
 
 class ComfyWorker(QRunnable):
-    def __init__(self, logger: Logger, server_url: str, workflow_name: str,
-                 prompt_text: str, cfg: Config, seed: int | None = None,
-                 image_prompt: ImagePrompt | None = None):
+    def __init__(
+        self,
+        logger: Logger,
+        server_url: str,
+        workflow_name: str,
+        prompt_text: str,
+        cfg: Config,
+        seed: int | None = None,
+        image_prompt: ImagePrompt | None = None,
+    ):
         super().__init__()
         self.signals = ComfyWorkerSignals()
         self.logger = logger
@@ -48,16 +55,14 @@ class ComfyWorker(QRunnable):
                 if self.image_prompt:
                     image_imput_name = self.image_prompt.get_input_name()
                 prompt = prompt_builder.build(
-                    wf_api, self.workflow_name, self.prompt_text,
-                    image_imput_name, self.seed
+                    wf_api, self.workflow_name, self.prompt_text, image_imput_name, self.seed
                 )
 
                 output_node = find_output_node(wf_api)
                 if output_node is not None:
                     node_id, _ = output_node
                 else:
-                    raise Exception(
-                        "No 'SaveImageWebsocket' output node found.")
+                    raise Exception("No 'SaveImageWebsocket' output node found.")
                 self.logger.debug(f"[ComfyWorker] Output_node: {node_id}")
 
                 images = await c.run_workflow(

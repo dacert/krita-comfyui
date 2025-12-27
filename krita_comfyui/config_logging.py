@@ -6,19 +6,17 @@ from pathlib import Path
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
-
     "formatters": {
         "standard": {
             "()": "logging.Formatter",
-            "fmt": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            "fmt": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         }
     },
-
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stdout",
-            "formatter": "standard"
+            "formatter": "standard",
         },
         "file": {
             "class": "logging.handlers.RotatingFileHandler",
@@ -26,14 +24,10 @@ LOGGING_CONFIG = {
             "maxBytes": 10 * 1024 * 1024,
             "backupCount": 4,
             "encoding": "utf-8",
-            "formatter": "standard"
-        }
+            "formatter": "standard",
+        },
     },
-
-    "root": {
-        "level": "ERROR",
-        "handlers": ["console", "file"]
-    }
+    "root": {"level": "ERROR", "handlers": ["console", "file"]},
 }
 
 

@@ -10,8 +10,8 @@ class ImagePrompt:
     The `image_id` is chosen randomly on *instance creation* and is used to
     construct the other file names automatically.  All fields are immutable
     """
-    image_id: int = field(
-        default_factory=lambda: "krita")
+
+    image_id: int = field(default_factory=lambda: "krita")
     image: str = field(init=False)
     mask: str = field(init=False)
     paint: str = field(init=False)
@@ -20,12 +20,12 @@ class ImagePrompt:
 
     image_bytes: bytes | None = field(default=None, repr=False)
 
-    sel_bytes:   bytearray | None = field(default=None, repr=False)
-    inverted_sel_bytes:   bytearray | None = field(default=None, repr=False)
-    sel_rect:   QRect | None = field(default=None, repr=False)
+    sel_bytes: bytearray | None = field(default=None, repr=False)
+    inverted_sel_bytes: bytearray | None = field(default=None, repr=False)
+    sel_rect: QRect | None = field(default=None, repr=False)
 
-    width:   int | None = field(default=None, repr=False)
-    height:   int | None = field(default=None, repr=False)
+    width: int | None = field(default=None, repr=False)
+    height: int | None = field(default=None, repr=False)
 
     def __post_init__(self):
         # Build the dependent fields using the *instance*'s image_id

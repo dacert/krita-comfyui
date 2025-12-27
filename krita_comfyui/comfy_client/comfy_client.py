@@ -7,9 +7,7 @@ from urllib.parse import urlparse
 from logging import Logger
 
 from ..websockets.src.websockets.exceptions import ConnectionClosedOK
-from ..websockets.src.websockets import (
-    ClientConnection, connect as websockets_connect
-)
+from ..websockets.src.websockets import ClientConnection, connect as websockets_connect
 
 from .image_prompt import ImagePrompt
 from .comfy_http_client import ComfyHttpClient
@@ -37,13 +35,11 @@ class ComfyClient:
 
     def get_ws_host(self, url: str) -> str:
         parsed = urlparse(url)
-        return (f"ws://{parsed.hostname}:{parsed.port}"
-                if parsed.port else parsed.hostname)
+        return f"ws://{parsed.hostname}:{parsed.port}" if parsed.port else parsed.hostname
 
     async def _connect_ws(self) -> None:
         url = f"{self.server_address}/ws?clientId={self.client_id}"
-        self.ws = await websockets_connect(
-            url, max_size=2**30, ping_timeout=60)
+        self.ws = await websockets_connect(url, max_size=2**30, ping_timeout=60)
         self.logger.debug(f"[ComfyClient]  WS connected as {self.client_id}")
 
     async def close(self) -> None:
@@ -59,7 +55,7 @@ class ComfyClient:
         output_node: str,
         *,
         timeout: float | None = None,
-        progress_callback: Callable[[float], Any] | None = None
+        progress_callback: Callable[[float], Any] | None = None,
     ) -> Dict[str, List[bytes]]:
         """
         Receive images from the server for a given prompt.
@@ -78,10 +74,10 @@ class ComfyClient:
                         if msg.get("type") == "executing":
                             data = msg["data"]
                             if data["prompt_id"] == prompt_id:
-                                if data['node'] is None:
+                                if data["node"] is None:
                                     break  # Execution is done
                                 else:
-                                    current_node = data['node']
+                                    current_node = data["node"]
 
                         elif msg["type"] == "execution_cached":
                             cache_nodes = len(msg["data"]["nodes"])
@@ -89,33 +85,32 @@ class ComfyClient:
                         elif msg["type"] == "progress_state":
                             nodes = msg["data"]["nodes"]
                             finished_nodes = sum(
-                                1 for n in nodes.values()
-                                if n.get("state") == "finished"
+                                1 for n in nodes.values() if n.get("state") == "finished"
                             )
                             running_progress = sum(
-                                n["value"] / n["max"] for n in nodes.values()
+                                n["value"] / n["max"]
+                                for n in nodes.values()
                                 if n["state"] == "running"
                             )
                             total_work_done = finished_nodes + running_progress
                             percent_complete = (
-                                total_work_done / (num_nodes - cache_nodes)
-                            ) * 100 if num_nodes else 0
+                                (total_work_done / (num_nodes - cache_nodes)) * 100
+                                if num_nodes
+                                else 0
+                            )
                             if progress_callback:
                                 progress_callback(round(percent_complete, 2))
 
                     else:
                         if current_node == output_node:
-                            output_images.setdefault(current_node, []).append(
-                                message[8:])
+                            output_images.setdefault(current_node, []).append(message[8:])
             except ConnectionClosedOK:
                 pass
 
         try:
             await asyncio.wait_for(_recv(), timeout=timeout)
         except asyncio.TimeoutError as exc:
-            raise TimeoutError(
-                f"Timed out waiting for images (prompt_id={prompt_id})"
-            ) from exc
+            raise TimeoutError(f"Timed out waiting for images (prompt_id={prompt_id})") from exc
 
         return output_images
 
@@ -123,31 +118,33 @@ class ComfyClient:
         if not image_prompt.has_image_data():
             return
 
-        qimg = QImage(image_prompt.image_bytes, image_prompt.width,
-                      image_prompt.height, QImage.Format_ARGB32)
+        qimg = QImage(
+            image_prompt.image_bytes, image_prompt.width, image_prompt.height, QImage.Format_ARGB32
+        )
         image_bytes = qimage_to_bytes(qimg)
 
-        uploaded = self.http_client.upload_file("image", image_prompt.image,
-                                                image_bytes,
-                                                subfolder="", overwrite=True)
+        uploaded = self.http_client.upload_file(
+            "image", image_prompt.image, image_bytes, subfolder="", overwrite=True
+        )
 
         if not image_prompt.has_selection_data():
             return
 
         mask_qimg = reduce_alpha_by_selection(
-            qimg,
-            image_prompt.width,
-            image_prompt.height,
-            image_prompt.sel_bytes)
+            qimg, image_prompt.width, image_prompt.height, image_prompt.sel_bytes
+        )
 
         mask_bytes = qimage_to_bytes(mask_qimg)
 
-        self.http_client.upload_file("mask", image_prompt.painted_mask,
-                                     mask_bytes,
-                                     subfolder="clipspace",
-                                     ref=uploaded["name"],
-                                     ref_subfolder=uploaded["subfolder"],
-                                     overwrite=True)
+        self.http_client.upload_file(
+            "mask",
+            image_prompt.painted_mask,
+            mask_bytes,
+            subfolder="clipspace",
+            ref=uploaded["name"],
+            ref_subfolder=uploaded["subfolder"],
+            overwrite=True,
+        )
 
     async def run_workflow(
         self,
@@ -156,7 +153,7 @@ class ComfyClient:
         *,
         image_prompt: ImagePrompt | None = None,
         timeout: float | None = None,
-        progress_callback: Callable[[float], Any] | None = None
+        progress_callback: Callable[[float], Any] | None = None,
     ) -> Dict[str, List[bytes]]:
 
         if image_prompt:
@@ -166,6 +163,9 @@ class ComfyClient:
         prompt_id = resp["prompt_id"]
 
         return await self._receive_images(
-            prompt_id, len(workflow), output_node, timeout=timeout,
-            progress_callback=progress_callback
+            prompt_id,
+            len(workflow),
+            output_node,
+            timeout=timeout,
+            progress_callback=progress_callback,
         )

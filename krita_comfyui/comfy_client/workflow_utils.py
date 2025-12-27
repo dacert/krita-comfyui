@@ -11,8 +11,7 @@ def find_output_node(api_data: dict):
     Returns (node_id, node_dict) or None if not found.
     """
     for node_id, node in api_data.items():
-        if (isinstance(node, dict) and
-                node.get("class_type") == "SaveImageWebsocket"):
+        if isinstance(node, dict) and node.get("class_type") == "SaveImageWebsocket":
             return node_id, node
     return None
 
@@ -73,8 +72,7 @@ def to_api_format(workflow: str, object_info: dict) -> dict:
 
             # Skip control_after_generate (optional UI behaviour)
             inp_info = inputs_info.get(inp["name"], [])
-            if (len(inp_info) > 1 and
-                    inp_info[1].get("control_after_generate", False)):
+            if len(inp_info) > 1 and inp_info[1].get("control_after_generate", False):
                 widget_index += 1
 
         node_entry: dict[str, Any] = {

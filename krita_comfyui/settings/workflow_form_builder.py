@@ -1,8 +1,4 @@
-
-from PyQt5.QtWidgets import (
-    QWidget, QFormLayout, QComboBox,
-    QLabel, QPushButton, QHBoxLayout
-)
+from PyQt5.QtWidgets import QWidget, QFormLayout, QComboBox, QLabel, QPushButton, QHBoxLayout
 from ..config import WorkflowConfig
 
 
@@ -33,7 +29,7 @@ class WorkflowFormBuilder:
     def __init__(self, parent: QWidget):
         self.parent = parent
         self.layout = QFormLayout(parent)
-        self.selectors = {}          # prop -> (QComboBox, options list)
+        self.selectors = {}  # prop -> (QComboBox, options list)
 
     def clear(self):
         """Remove all widgets from the form."""
@@ -61,8 +57,7 @@ class WorkflowFormBuilder:
             for node_id, node in wf_data.items():
                 if isinstance(node, dict) and "inputs" in node:
                     for inp_name in node["inputs"]:
-                        title = node.get("_meta", {}).get("title",
-                                                          f"{node_id}")
+                        title = node.get("_meta", {}).get("title", f"{node_id}")
                         label = f"{title} – {inp_name}"
                         options.append((label, node_id, inp_name))
 
@@ -73,7 +68,8 @@ class WorkflowFormBuilder:
             if saved:
                 try:
                     idx = next(
-                        i for i, o in enumerate(options)
+                        i
+                        for i, o in enumerate(options)
                         if o[1] == saved.node_id and o[2] == saved.property
                     )
                     combo.setCurrentIndex(idx)
@@ -81,8 +77,7 @@ class WorkflowFormBuilder:
                     combo.setCurrentIndex(0)
 
             required = prop not in self.OPTIONAL_PROPERTIES
-            self.layout.addRow(
-                QLabel(f"{'*' if required else ''}{prop}:"), combo)
+            self.layout.addRow(QLabel(f"{'*' if required else ''}{prop}:"), combo)
             self.selectors[prop] = (combo, options)
 
     def add_action_buttons(

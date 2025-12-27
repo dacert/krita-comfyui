@@ -2,9 +2,17 @@ import re
 from pathlib import Path
 from krita import Krita
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QTabWidget, QPushButton,
-    QHBoxLayout, QWidget, QLineEdit, QLabel,
-    QComboBox, QMessageBox, QCheckBox
+    QDialog,
+    QVBoxLayout,
+    QTabWidget,
+    QPushButton,
+    QHBoxLayout,
+    QWidget,
+    QLineEdit,
+    QLabel,
+    QComboBox,
+    QMessageBox,
+    QCheckBox,
 )
 from PyQt5.QtCore import QThreadPool
 
@@ -91,8 +99,7 @@ class SettingsDialog(QDialog):
         self.workflow_label = QLabel("Select Workflow:")
         wf_layout.addWidget(self.workflow_label)
         wf_layout.addWidget(self.workflow_combo)
-        self.workflow_combo.currentTextChanged.connect(
-            lambda _: self._populate_wf_form())
+        self.workflow_combo.currentTextChanged.connect(lambda _: self._populate_wf_form())
         self._set_loading(False)
 
         # Form placeholder -------------------------------------------------
@@ -177,31 +184,26 @@ class SettingsDialog(QDialog):
             self._set_loading(True)
             self._run_worker(
                 self._get_workflows,
-                on_success=lambda d: (self._populate_workflow_combo(
-                    d), self._set_loading(False)),
+                on_success=lambda d: (self._populate_workflow_combo(d), self._set_loading(False)),
                 on_error=lambda: (
                     QMessageBox.warning(
-                        self, "Error",
-                        "Could not retrieve the configured workflows."
+                        self, "Error", "Could not retrieve the configured workflows."
                     ),
-                    self._set_loading(False)
-                )
+                    self._set_loading(False),
+                ),
             )
 
     def _get_workflows(self):
         server_list = self._get_workflows_list(self.cfg.comfyui_url)
-        wf_names = sorted(
-            Path(item["path"]).name for item in server_list if "path" in item
-        )
+        wf_names = sorted(Path(item["path"]).name for item in server_list if "path" in item)
         cfg_map = {w.workflow_name: w for w in self.cfg.workflows}
-        results = [self._fetch_single_workflow(
-            name, self.cfg.comfyui_url, cfg_map.get(name)
-        ) for name in wf_names]
+        results = [
+            self._fetch_single_workflow(name, self.cfg.comfyui_url, cfg_map.get(name))
+            for name in wf_names
+        ]
         return results
 
-    def _fetch_single_workflow(
-        self, name: str, server_url: str, matching_cfg=None
-    ):
+    def _fetch_single_workflow(self, name: str, server_url: str, matching_cfg=None):
         missing_ref = False
         saved = False
         wf_data = None
@@ -216,8 +218,9 @@ class SettingsDialog(QDialog):
                 node_id, inp_name = prop_cfg.node_id, prop_cfg.property
                 if key in self.OPTIONAL_PROPERTIES and inp_name is None:
                     continue
-                if (wf_data is None or inp_name not in
-                        wf_data.get(str(node_id), {}).get("inputs", {})):
+                if wf_data is None or inp_name not in wf_data.get(str(node_id), {}).get(
+                    "inputs", {}
+                ):
                     missing_ref = True
                     break
 
@@ -232,7 +235,7 @@ class SettingsDialog(QDialog):
         warn_icon = Krita.instance().icon("warning")
 
         self.loaded_workflows = workflows
-        for (name, isSaved, missing_ref, _) in workflows:
+        for name, isSaved, missing_ref, _ in workflows:
             item_index = self.workflow_combo.count()
             self.workflow_combo.addItem(name)
 
@@ -291,22 +294,16 @@ class SettingsDialog(QDialog):
             return
 
         try:
-            wf_data = next(
-                (w[-1] for w in self.loaded_workflows if w[0] == wf_name), {}
-            )
+            wf_data = next((w[-1] for w in self.loaded_workflows if w[0] == wf_name), {})
             if not wf_data:
                 wf_data = self._get_workflow_api(self.cfg.comfyui_url, wf_name)
         except Exception as e:
             self.logger.exception(e)
-            QMessageBox.warning(
-                self, "Error", f"Cannot load workflow: {e}"
-            )
+            QMessageBox.warning(self, "Error", f"Cannot load workflow: {e}")
             return
 
         # Find existing config for this workflow (if any)
-        cfg_obj = next(
-            (w for w in self.cfg.workflows if w.workflow_name == wf_name), None
-        )
+        cfg_obj = next((w for w in self.cfg.workflows if w.workflow_name == wf_name), None)
 
         # Build the form via the helper
         self.wf_form_builder.build_from_api(wf_data, cfg_obj)
@@ -331,13 +328,10 @@ class SettingsDialog(QDialog):
         for prop, (combo, opts) in self.wf_form_builder.selectors.items():
             idx = combo.currentIndex()
             node_id, inp_name = opts[idx][1], opts[idx][2]
-            if ((node_id is None or inp_name is None) and
-                    prop not in self.OPTIONAL_PROPERTIES):
-                QMessageBox.warning(self, "Validation error",
-                                    f"{prop} can´t be empty.")
+            if (node_id is None or inp_name is None) and prop not in self.OPTIONAL_PROPERTIES:
+                QMessageBox.warning(self, "Validation error", f"{prop} can´t be empty.")
                 return
-            inputs_cfg[prop] = WorkflowInput(
-                node_id=node_id, property=inp_name)
+            inputs_cfg[prop] = WorkflowInput(node_id=node_id, property=inp_name)
 
         wf_obj = WorkflowConfig(workflow_name=wf_name, inputs=inputs_cfg)
 
@@ -360,9 +354,7 @@ class SettingsDialog(QDialog):
         if wf_name == "— No workflow selected —":
             return
 
-        self.cfg.workflows = [
-            w for w in self.cfg.workflows if w.workflow_name != wf_name
-        ]
+        self.cfg.workflows = [w for w in self.cfg.workflows if w.workflow_name != wf_name]
 
         self._populate_workflow()
 
@@ -370,15 +362,13 @@ class SettingsDialog(QDialog):
         """Persist the current dialog state into Config."""
         try:
             cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
-            self.cfg.save(cfg_path)   # only save the existing self.cfg
+            self.cfg.save(cfg_path)  # only save the existing self.cfg
             self.accept()
         except Exception as e:
-            QMessageBox.critical(self, "Error",
-                                 f"Failed to save configuration: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to save configuration: {e}")
 
     def _get_http_client(self, server_url: str):
-        if (self.http_client is None or
-                self.http_client.server_address != server_url):
+        if self.http_client is None or self.http_client.server_address != server_url:
             self.http_client = ComfyHttpClient(server_url)
         return self.http_client
 
