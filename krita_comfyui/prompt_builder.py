@@ -17,7 +17,7 @@ class PromptBuilder:
         workflow_name: str,
         base_prompt: str,
         image_input_name: str | None = None,
-        seed: int | None = None
+        seed: int | None = None,
     ) -> dict:
         """
         Modifies `wf_api` with the user prompt and optional seed.
@@ -25,12 +25,7 @@ class PromptBuilder:
         """
 
         # Find the workflow definition in the config
-        wf_cfg = next(
-            (
-                w for w in self.cfg.workflows
-                if w.workflow_name == workflow_name
-            ), None
-        )
+        wf_cfg = next((w for w in self.cfg.workflows if w.workflow_name == workflow_name), None)
         if wf_cfg is None:
             # No specific configuration
             # return the original payload unchanged.

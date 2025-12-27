@@ -37,16 +37,11 @@ class Config:
         workflows = [
             WorkflowConfig(
                 workflow_name=wf["workflow_name"],
-                inputs={
-                    k: WorkflowInput(**v)
-                    for k, v in wf.get("inputs", {}).items()
-                },
+                inputs={k: WorkflowInput(**v) for k, v in wf.get("inputs", {}).items()},
             )
             for wf in data.get("workflows", [])
         ]
-        return cls(logger=data["logger"],
-                   comfyui_url=data["comfyui_url"],
-                   workflows=workflows)
+        return cls(logger=data["logger"], comfyui_url=data["comfyui_url"], workflows=workflows)
 
     def save(self, path: Path):
         """Persist configuration to disk."""
@@ -86,9 +81,7 @@ class Config:
             try:
                 return cls.load(path)
             except Exception as e:
-                logger.error(
-                    f"Failed to load config at {path}: {e}"
-                )
+                logger.error(f"Failed to load config at {path}: {e}")
 
         default_cfg = cls(
             logger=False,
@@ -99,7 +92,5 @@ class Config:
             default_cfg.save(path)
             logger.debug(f"Created default config at {path}")
         except Exception as e:
-            logger.error(
-                f"Could not write default config to {path}: {e}"
-            )
+            logger.error(f"Could not write default config to {path}: {e}")
         return default_cfg

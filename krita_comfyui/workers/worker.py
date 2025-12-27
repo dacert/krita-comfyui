@@ -1,4 +1,3 @@
-
 from PyQt5.QtCore import QRunnable, pyqtSignal, QObject
 
 

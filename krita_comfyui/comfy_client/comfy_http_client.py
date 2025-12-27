@@ -10,6 +10,7 @@ class ComfyHttpClient:
     """
     HTTP Client for interacting with the ComfyUI server (HTTP API).
     """
+
     TIMEOUT_SECONDS = 5
 
     def __init__(self, server: str = "http://127.0.0.1:8188"):
@@ -17,19 +18,18 @@ class ComfyHttpClient:
         self._object_info_cache: dict | None = None
 
     def upload_file(
-            self,
-            path: str,
-            file_name: str, file_bytes,
-            subfolder: str = "",
-            ref: str = "", ref_subfolder: str = "",
-            overwrite: bool = False
+        self,
+        path: str,
+        file_name: str,
+        file_bytes,
+        subfolder: str = "",
+        ref: str = "",
+        ref_subfolder: str = "",
+        overwrite: bool = False,
     ) -> str | None:
         fields = {"type": "input"}
         if ref:
-            fields["original_ref"] = {
-                "filename": ref,
-                "subfolder": ref_subfolder,
-                "type": "input"}
+            fields["original_ref"] = {"filename": ref, "subfolder": ref_subfolder, "type": "input"}
         if overwrite:
             fields["overwrite"] = "true"
         if subfolder:
@@ -54,10 +54,7 @@ class ComfyHttpClient:
         return None
 
     def get_workflows_list(self) -> dict:
-        query = {
-            "dir": "workflows", "recurse": True,
-            "split": False, "full_info": True
-        }
+        query = {"dir": "workflows", "recurse": True, "split": False, "full_info": True}
         url = f"{self.server_address}/api/userdata?{urlencode(query)}"
         return self._fetch_json(url)
 
@@ -111,9 +108,9 @@ class ComfyHttpClient:
         lines = []
 
         for key, value in fields.items():
-            lines.append(f'--{boundary}')
+            lines.append(f"--{boundary}")
             lines.append(f'Content-Disposition: form-data; name="{key}"')
-            lines.append('')
+            lines.append("")
             if isinstance(value, (dict, list)):
                 value_str = json.dumps(value)
             else:
@@ -121,18 +118,18 @@ class ComfyHttpClient:
             lines.append(value_str)
 
         for field_name, filename, file_bytes in files:
-            lines.append(f'--{boundary}')
+            lines.append(f"--{boundary}")
             lines.append(
                 f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"'
             )
-            lines.append('Content-Type: application/octet-stream')
-            lines.append('')
+            lines.append("Content-Type: application/octet-stream")
+            lines.append("")
             if not isinstance(file_bytes, (bytes, bytearray)):
                 file_bytes = bytes(file_bytes)
             lines.append(file_bytes.decode("latin1"))  # binary data
 
-        lines.append(f'--{boundary}--')
-        lines.append('')
+        lines.append(f"--{boundary}--")
+        lines.append("")
         body = "\r\n".join(lines).encode("latin1")
-        content_type = f'multipart/form-data; boundary={boundary}'
+        content_type = f"multipart/form-data; boundary={boundary}"
         return body, content_type

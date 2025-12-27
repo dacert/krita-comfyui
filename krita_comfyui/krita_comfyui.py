@@ -1,11 +1,19 @@
-
 import os
 from krita import DockWidget, Krita
 from PyQt5.QtWidgets import (
-    QSizePolicy, QVBoxLayout, QPlainTextEdit,
-    QPushButton, QHBoxLayout, QWidget, QToolButton,
-    QLabel, QComboBox, QMessageBox, QProgressBar,
-    QListWidget, QListWidgetItem
+    QSizePolicy,
+    QVBoxLayout,
+    QPlainTextEdit,
+    QPushButton,
+    QHBoxLayout,
+    QWidget,
+    QToolButton,
+    QLabel,
+    QComboBox,
+    QMessageBox,
+    QProgressBar,
+    QListWidget,
+    QListWidgetItem,
 )
 from PyQt5.QtCore import QThreadPool, pyqtSlot, QSize, QByteArray, Qt, QRect
 from PyQt5.QtGui import QImage, QIcon, QPixmap
@@ -18,7 +26,7 @@ from .workers import ComfyWorker
 from .config import Config
 from .comfy_client import reduce_alpha_by_selection
 
-DOCKER_TITLE = 'Krita ComfyUi'
+DOCKER_TITLE = "Krita ComfyUi"
 
 
 class KritaComfyUi(DockWidget):
@@ -72,8 +80,7 @@ class KritaComfyUi(DockWidget):
         line_height = font_metrics.lineSpacing()
         self.prompt_box.setMinimumHeight(line_height * 3)
         self.prompt_box.setMaximumHeight(line_height * 5)
-        self.prompt_box.setPlaceholderText(
-            "Describe the content you want to create")
+        self.prompt_box.setPlaceholderText("Describe the content you want to create")
         prompt_layout.addWidget(self.prompt_box)
         layout.addWidget(prompt_container)
 
@@ -138,8 +145,7 @@ class KritaComfyUi(DockWidget):
                 if "path" in item
             }
         except Exception as e:
-            self.logger.debug(
-                f"Error querying workflows: {e}")
+            self.logger.debug(f"Error querying workflows: {e}")
             server_workflows = set()
 
         # Filter local config by names that exist on the server
@@ -150,8 +156,7 @@ class KritaComfyUi(DockWidget):
             if name in server_workflows:
                 self.workflow_combo.addItem(name)
             else:
-                self.logger.debug(
-                    f"Workflow {name} not found on the server; omitted.")
+                self.logger.debug(f"Workflow {name} not found on the server; omitted.")
 
     def open_settings_dialog(self):
         dlg = SettingsDialog(self.plugin_dir, parent=self)
@@ -188,7 +193,7 @@ class KritaComfyUi(DockWidget):
             workflow_name=wf_name,
             prompt_text=prompt,
             cfg=self.cfg,
-            image_prompt=self.image_prompt
+            image_prompt=self.image_prompt,
         )
 
         worker.signals.finished.connect(self.on_images_ready)
@@ -218,10 +223,9 @@ class KritaComfyUi(DockWidget):
                 qimage, thumb = self._get_image_and_thumb(qimage)
 
                 icon = QIcon(thumb)
-                item = QListWidgetItem(
-                    icon, f"{self.prompt_box.toPlainText().strip()}_{idx}.png")
+                item = QListWidgetItem(icon, f"{self.prompt_box.toPlainText().strip()}_{idx}.png")
                 # Store original data
-                item.setData(Qt.UserRole + 1, qimage)         # QImage
+                item.setData(Qt.UserRole + 1, qimage)  # QImage
 
                 self.thumbnail_list.addItem(item)
 
@@ -230,24 +234,23 @@ class KritaComfyUi(DockWidget):
     def _get_image_and_thumb(self, qimage: QImage):
         new_image = qimage.convertToFormat(QImage.Format_ARGB32)
         new_image = new_image.scaled(
-            QSize(self.image_prompt.width,
-                  self.image_prompt.height),
-            Qt.KeepAspectRatio)
+            QSize(self.image_prompt.width, self.image_prompt.height), Qt.KeepAspectRatio
+        )
 
         if self.image_prompt.has_selection_data():
             sel_bytes = self.image_prompt.inverted_sel_bytes
             new_image = reduce_alpha_by_selection(
-                new_image, self.image_prompt.width,
-                self.image_prompt.height, sel_bytes)
+                new_image, self.image_prompt.width, self.image_prompt.height, sel_bytes
+            )
 
             sel_rect = self.image_prompt.sel_rect
             pixmap = QPixmap.fromImage(new_image.copy(sel_rect))
         else:
             pixmap = QPixmap.fromImage(new_image)
 
-        thumb = pixmap.scaled(128, 128,
-                              aspectRatioMode=Qt.KeepAspectRatio,
-                              transformMode=Qt.SmoothTransformation)
+        thumb = pixmap.scaled(
+            128, 128, aspectRatioMode=Qt.KeepAspectRatio, transformMode=Qt.SmoothTransformation
+        )
         return (new_image, thumb)
 
     @pyqtSlot(str)
@@ -270,8 +273,7 @@ class KritaComfyUi(DockWidget):
         qimage = item.data(Qt.UserRole + 1)
 
         if not isinstance(qimage, QImage):
-            self.logger.debug(
-                "Retrieved data is not a QImage.")
+            self.logger.debug("Retrieved data is not a QImage.")
             return
 
         layer_name = f"Image {qimage.width()}x{qimage.height()}"
@@ -297,8 +299,7 @@ class KritaComfyUi(DockWidget):
 
         sel = doc.selection()
         sel_bytes = sel.pixelData(0, 0, w, h) if sel else None
-        sel_rect = QRect(sel.x(), sel.y(), sel.width(),
-                         sel.height()) if sel else None
+        sel_rect = QRect(sel.x(), sel.y(), sel.width(), sel.height()) if sel else None
 
         inverted_sel_bytes = None
         if sel_bytes:
@@ -306,9 +307,14 @@ class KritaComfyUi(DockWidget):
             cloned_sel.invert()
             inverted_sel_bytes = cloned_sel.pixelData(0, 0, w, h)
 
-        return ImagePrompt(width=w, height=h, sel_rect=sel_rect,
-                           image_bytes=image_bytes, sel_bytes=sel_bytes,
-                           inverted_sel_bytes=inverted_sel_bytes)
+        return ImagePrompt(
+            width=w,
+            height=h,
+            sel_rect=sel_rect,
+            image_bytes=image_bytes,
+            sel_bytes=sel_bytes,
+            inverted_sel_bytes=inverted_sel_bytes,
+        )
 
     def add_image_layer(self, name: str, qimage: QImage):
         if qimage.format() != QImage.Format_ARGB32:
@@ -319,16 +325,13 @@ class KritaComfyUi(DockWidget):
         doc.rootNode().addChildNode(new_layer, None)
 
         chanel_size = new_layer.channels()[0].channelSize()
-        if (qimage.sizeInBytes() !=
-                4 * chanel_size * doc.width() * doc.height()):
+        if qimage.sizeInBytes() != 4 * chanel_size * doc.width() * doc.height():
             self.logger.debug("Image size is not correct!")
-            qimage = qimage.scaled(
-                QSize(doc.width(), doc.height()), Qt.KeepAspectRatio)
+            qimage = qimage.scaled(QSize(doc.width(), doc.height()), Qt.KeepAspectRatio)
 
         ptr = qimage.bits()
         ptr.setsize(qimage.byteCount())
-        new_layer.setPixelData(QByteArray(ptr.asstring()),
-                               0, 0, qimage.width(), qimage.height())
+        new_layer.setPixelData(QByteArray(ptr.asstring()), 0, 0, qimage.width(), qimage.height())
 
         self.logger.debug(f"Layer created: {name}")
 
