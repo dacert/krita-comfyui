@@ -6,3 +6,6 @@
 # Development
 ruff
 PyQt5
+
+# Testing
+pytest

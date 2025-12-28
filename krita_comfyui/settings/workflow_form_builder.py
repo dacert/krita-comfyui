@@ -1,3 +1,5 @@
+from typing import Callable, Union
+from PyQt5.QtCore import pyqtBoundSignal
 from PyQt5.QtWidgets import QWidget, QFormLayout, QComboBox, QLabel, QPushButton, QHBoxLayout
 from ..config import WorkflowConfig
 
@@ -14,10 +16,10 @@ class WorkflowFormBuilder:
 
     PROPERTIES = [
         "prompt",
-        "negative_prompt",
+        # "negative_prompt",
         "seed",
         "image_loader",
-        "num_image_sampler",
+        # "num_image_sampler",
     ]
 
     OPTIONAL_PROPERTIES = [
@@ -35,7 +37,7 @@ class WorkflowFormBuilder:
         """Remove all widgets from the form."""
         while self.layout.count():
             item = self.layout.takeAt(0)
-            if widget := item.widget():
+            if item and (widget := item.widget()):
                 widget.deleteLater()
         self.selectors.clear()
 
@@ -82,8 +84,8 @@ class WorkflowFormBuilder:
 
     def add_action_buttons(
         self,
-        update_cb: callable,
-        delete_cb: callable,
+        update_cb: Union[Callable[..., None], pyqtBoundSignal],
+        delete_cb: Union[Callable[..., None], pyqtBoundSignal],
         can_delete: bool,
     ) -> None:
         """

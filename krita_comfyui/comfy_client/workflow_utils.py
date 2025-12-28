@@ -16,7 +16,7 @@ def find_output_node(api_data: dict):
     return None
 
 
-def to_api_format(workflow: str, object_info: dict) -> dict:
+def to_api_format(workflow: dict, object_info: dict) -> dict:
     """
     Convert a raw ComfyUI workflow (JSON from `/api/userdata`) into the
     simplified API format used by the plugin.

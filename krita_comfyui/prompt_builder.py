@@ -3,6 +3,7 @@ Builds the JSON payload to send to Comfy.
 """
 
 import random
+import copy
 from typing import Any, Dict
 from .config import Config
 
@@ -27,29 +28,25 @@ class PromptBuilder:
         # Find the workflow definition in the config
         wf_cfg = next((w for w in self.cfg.workflows if w.workflow_name == workflow_name), None)
         if wf_cfg is None:
-            # No specific configuration
-            # return the original payload unchanged.
+            # No specific configuration → return the original payload unchanged.
             return wf_api
 
-        # Copy the API dict to avoid mutating the caller's data
-        payload = {k: v.copy() for k, v in wf_api.items()}
+        # Deep‑copy the API dict to avoid mutating the caller's data
+        payload = copy.deepcopy(wf_api)
 
         # Inject prompt and seed values using node mapping from config
         inputs_map = wf_cfg.inputs
 
         prompt_input = inputs_map["prompt"]
-        prompt_inputs = payload[prompt_input.node_id]["inputs"]
-        prompt_inputs[prompt_input.property] = base_prompt
+        payload[prompt_input.node_id]["inputs"][prompt_input.property] = base_prompt
 
         seed_val = seed if seed is not None else random.randint(1, 11768320141)
         seed_input = inputs_map["seed"]
         payload[seed_input.node_id]["inputs"][seed_input.property] = seed_val
 
-        image_input = inputs_map["image_loader"]
+        # Handle optional image input
+        image_input = inputs_map.get("image_loader")
         if image_input_name and image_input.node_id:
-            image_input = inputs_map["image_loader"]
-            prompt_inputs = payload[image_input.node_id]["inputs"]
-            prompt_inputs[image_input.property] = image_input_name
+            payload[image_input.node_id]["inputs"][image_input.property] = image_input_name
 
-        # Return JSON string
         return payload

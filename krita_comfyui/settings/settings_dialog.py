@@ -1,6 +1,6 @@
 import re
 from pathlib import Path
-from krita import Krita
+from krita import Krita  # ty:ignore[unresolved-import]
 from PyQt5.QtWidgets import (
     QDialog,
     QVBoxLayout,

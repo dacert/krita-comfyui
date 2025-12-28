@@ -11,9 +11,15 @@ target-version = "py311"
 line-length = 100
 preview = true
 extend-exclude = [
-    "krita_comfyui/websockets",
-    "krita.pyi",
+    "krita_comfyui/websockets"
 ]
 
 [tool.ruff.lint]
 ignore = ["E741"]
+
+[tool.ty.src]
+include = ["krita_comfyui", "tests"]
+exclude = ["krita_comfyui/websockets"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

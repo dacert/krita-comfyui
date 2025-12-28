@@ -24,7 +24,7 @@ class ComfyClient:
         self.server_address = self.get_ws_host(server)
         self.http_client = ComfyHttpClient(server)
         self.client_id = str(uuid.uuid4())
-        self.ws: ClientConnection | None = None
+        self.ws: ClientConnection
 
     async def __aenter__(self):
         await self._connect_ws()
@@ -33,7 +33,7 @@ class ComfyClient:
     async def __aexit__(self, exc_type, exc, tb):
         await self.close()
 
-    def get_ws_host(self, url: str) -> str:
+    def get_ws_host(self, url: str) -> str | None:
         parsed = urlparse(url)
         return f"ws://{parsed.hostname}:{parsed.port}" if parsed.port else parsed.hostname
 
@@ -102,7 +102,7 @@ class ComfyClient:
                                 progress_callback(round(percent_complete, 2))
 
                     else:
-                        if current_node == output_node:
+                        if current_node and current_node == output_node:
                             output_images.setdefault(current_node, []).append(message[8:])
             except ConnectionClosedOK:
                 pass
@@ -119,7 +119,10 @@ class ComfyClient:
             return
 
         qimg = QImage(
-            image_prompt.image_bytes, image_prompt.width, image_prompt.height, QImage.Format_ARGB32
+            image_prompt.image_bytes,
+            image_prompt.width,
+            image_prompt.height,
+            QImage.Format.Format_ARGB32,
         )
         image_bytes = qimage_to_bytes(qimg)
 
@@ -127,7 +130,7 @@ class ComfyClient:
             "image", image_prompt.image, image_bytes, subfolder="", overwrite=True
         )
 
-        if not image_prompt.has_selection_data():
+        if not uploaded or not image_prompt.sel_bytes:
             return
 
         mask_qimg = reduce_alpha_by_selection(

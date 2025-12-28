@@ -26,7 +26,7 @@ class ComfyHttpClient:
         ref: str = "",
         ref_subfolder: str = "",
         overwrite: bool = False,
-    ) -> str | None:
+    ) -> dict | None:
         fields = {"type": "input"}
         if ref:
             fields["original_ref"] = {"filename": ref, "subfolder": ref_subfolder, "type": "input"}
