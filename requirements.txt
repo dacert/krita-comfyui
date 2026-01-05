@@ -9,3 +9,6 @@ PyQt5
 
 # Testing
 pytest
+pytest-qt
+pytest-mock
+pytest-asyncio

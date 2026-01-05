@@ -35,7 +35,7 @@ class ComfyClient:
 
     def get_ws_host(self, url: str) -> str | None:
         parsed = urlparse(url)
-        return f"ws://{parsed.hostname}:{parsed.port}" if parsed.port else parsed.hostname
+        return f"ws://{parsed.hostname}:{parsed.port}" if parsed.port else f"ws://{parsed.hostname}"
 
     async def _connect_ws(self) -> None:
         url = f"{self.server_address}/ws?clientId={self.client_id}"

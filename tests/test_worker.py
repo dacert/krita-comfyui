@@ -15,7 +15,7 @@ class TestWorker(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Ensure a global thread pool exists before any tests run.
-        cls.pool = QThreadPool.globalInstance()
+        cls.pool = QThreadPool()
 
     def _run_worker_and_wait(self, worker: Worker):
         """
@@ -29,7 +29,7 @@ class TestWorker(unittest.TestCase):
 
         # Wait up to 2 seconds for either signal
         timeout_ms = 2000
-        while not (finished_spy or error_spy):
+        while not (len(finished_spy) or len(error_spy)):
             if timeout_ms <= 0:
                 break
             sleep(0.01)
