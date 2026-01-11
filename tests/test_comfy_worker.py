@@ -1,4 +1,4 @@
-from anyio import sleep
+from time import sleep
 from PyQt5.QtTest import QSignalSpy
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -142,24 +142,28 @@ def _run_comfy_worker_and_wait(worker: ComfyWorker, qapp):
     until it emits either `finished` or `error`.
     Returns the emitted data on success, otherwise raises RuntimeError.
     """
-    finished_spy = QSignalSpy(worker.signals.finished)
-    error_spy = QSignalSpy(worker.signals.error)
+    pool = QThreadPool()
+    if pool is None:
+        pytest.fail("QThreadPool is None.")
+        return
 
-    QThreadPool.globalInstance().start(worker)
+    catcher = SignalCatcher()
+    catcher.connect(worker)
+    pool.start(worker)
 
-    timeout_ms = 500000
-    while not (len(finished_spy) or len(error_spy)):
+    timeout_ms = 2000
+    while not (len(catcher.finished) or len(catcher.error)):
         qapp.processEvents()
         if timeout_ms <= 0:
             break
         sleep(0.01)
         timeout_ms -= 10
 
-    if finished_spy:
-        return finished_spy[0][0]
-    if error_spy:
-        return error_spy[0][0]
-    pytest.fail("ComfyWorker did not emit finished or error signal within timeout.")
+    pool.clear()
+    if not (len(catcher.finished) or len(catcher.error)):
+        pytest.fail("ComfyWorker did not emit finished or error signal within timeout.")
+
+    return catcher
 
 
 # ----------------------------------------------------------------------
@@ -206,11 +210,9 @@ def test_worker_success_no_image(
                 seed=1234,
                 image_prompt=None,
             )
-            catcher = SignalCatcher()
-            catcher.connect(worker)
 
             # Act
-            _run_comfy_worker_and_wait(worker, qapp)
+            catcher = _run_comfy_worker_and_wait(worker, qapp)
 
     # Assert
     assert len(catcher.error) == 0, f"Unexpected error signals: {catcher.error}"
@@ -262,11 +264,9 @@ def test_worker_success_with_image(
             seed=None,
             image_prompt=image_prompt,
         )
-        catcher = SignalCatcher()
-        catcher.connect(worker)
 
         # Act
-        _run_comfy_worker_and_wait(worker, qapp)
+        catcher = _run_comfy_worker_and_wait(worker, qapp)
 
     # Assert
     assert len(catcher.error) == 0, f"Unexpected error signals: {catcher.error}"
@@ -300,11 +300,9 @@ def test_worker_missing_output_node(qapp, mock_cfg, http_client_mock, prompt_bui
             seed=None,
             image_prompt=None,
         )
-        catcher = SignalCatcher()
-        catcher.connect(worker)
 
         # Act
-        _run_comfy_worker_and_wait(worker, qapp)
+        catcher = _run_comfy_worker_and_wait(worker, qapp)
 
     assert len(catcher.finished) == 0
     assert len(catcher.error) == 1

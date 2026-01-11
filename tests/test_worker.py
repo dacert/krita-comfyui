@@ -35,6 +35,7 @@ class TestWorker(unittest.TestCase):
             sleep(0.01)
             timeout_ms -= 10
 
+        self.pool.clear()
         if finished_spy:
             return finished_spy[0][0]  # the emitted result
         if error_spy:
