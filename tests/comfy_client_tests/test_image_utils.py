@@ -88,6 +88,7 @@ class TestReduceAlphaBySelection:
         ptr: voidptr | None = img.bits()
         if ptr is None:
             pytest.fail("image bits() returned None")
+            return
 
         ptr.setsize(height * width * 4)
         expected_buf = bytearray(ptr.asarray())
@@ -101,6 +102,7 @@ class TestReduceAlphaBySelection:
         result_ptr: voidptr | None = result_img.bits()
         if result_ptr is None:
             pytest.fail("result image bits() returned None")
+            return
 
         result_ptr.setsize(height * width * 4)
         actual_buf = bytearray(result_ptr.asarray())
@@ -159,12 +161,12 @@ class TestReduceAlphaBySelection:
         def fake_bits():
             return None
 
-        img.bits = fake_bits
+        img.bits = fake_bits  # ty:ignore[invalid-assignment]
         sel_bytes = QByteArray(b"\xff")
         result_img = reduce_alpha_by_selection(img, 1, 1, sel_bytes)
         assert result_img is img
         # Restore original method for cleanliness
-        img.bits = original_bits
+        img.bits = original_bits  # ty:ignore[invalid-assignment]
 
 
 class TestQImageToBytes:

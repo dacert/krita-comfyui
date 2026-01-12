@@ -1,6 +1,6 @@
 from PyQt5.sip import voidptr
 import os
-from .krita import DockWidget, Krita  # ty:ignore[unresolved-import]
+from .krita import DockWidget, Krita
 from PyQt5.QtWidgets import (
     QSizePolicy,
     QVBoxLayout,

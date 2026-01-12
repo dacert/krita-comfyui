@@ -1,5 +1,4 @@
 from time import sleep
-from PyQt5.QtTest import QSignalSpy
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
