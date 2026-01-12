@@ -1,9 +1,8 @@
 import json
 import uuid
 from .workflow_utils import to_api_format
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urljoin, quote
 import urllib.request
-from urllib.parse import quote
 
 
 class ComfyHttpClient:
@@ -17,6 +16,10 @@ class ComfyHttpClient:
         self.server_address = server.rstrip("/")
         self._object_info_cache: dict | None = None
 
+    # --------------------------------------------------------------------- #
+    # Public API
+    # --------------------------------------------------------------------- #
+
     def upload_file(
         self,
         path: str,
@@ -27,34 +30,70 @@ class ComfyHttpClient:
         ref_subfolder: str = "",
         overwrite: bool = False,
     ) -> dict | None:
-        fields = {"type": "input"}
+        """
+        Upload a single image to the ComfyUI server.
+
+        Parameters
+        ----------
+        path : str
+            Target folder inside the upload endpoint (e.g. ``images``).
+        file_name : str
+            Name of the file being uploaded.
+        file_bytes : bytes
+            Raw binary data of the file.
+        subfolder : str, optional
+            Optional sub‑folder under *path* where the file should be stored.
+        ref : str, optional
+            Reference image filename (if any).
+        ref_subfolder : str, optional
+            Sub‑folder for the reference image.
+        overwrite : bool, default False
+            Whether to overwrite an existing file with the same name.
+
+        Returns
+        -------
+        dict | None
+            Server response parsed as JSON or ``None`` if parsing failed.
+        """
+        fields: dict[str, str | dict] = {"type": "input"}
+
         if ref:
-            fields["original_ref"] = {"filename": ref, "subfolder": ref_subfolder, "type": "input"}
+            fields["original_ref"] = {
+                "filename": ref,
+                "subfolder": ref_subfolder,
+                "type": "input",
+            }
+
         if overwrite:
             fields["overwrite"] = "true"
+
         if subfolder:
             fields["subfolder"] = subfolder
 
         body, content_type = self._encode_multipart_formdata(
-            fields=fields,
-            files=[("image", file_name, file_bytes)],
+            fields=fields, files=[("image", file_name, file_bytes)]
         )
 
+        url = urljoin(f"{self.server_address}/", f"upload/{path}")
         req = urllib.request.Request(
-            f"{self.server_address}/upload/{path}",
+            url,
             data=body,
             headers={"Content-Type": content_type},
         )
         with urllib.request.urlopen(req) as resp:
             resp_data = json.loads(resp.read().decode())
 
-        # The server returns a JSON object on success
         if isinstance(resp_data, dict):
             return resp_data
         return None
 
     def get_workflows_list(self) -> dict:
-        query = {"dir": "workflows", "recurse": True, "split": False, "full_info": True}
+        query = {
+            "dir": "workflows",
+            "recurse": True,
+            "split": False,
+            "full_info": True,
+        }
         url = f"{self.server_address}/api/userdata?{urlencode(query)}"
         return self._fetch_json(url)
 
@@ -68,7 +107,6 @@ class ComfyHttpClient:
 
         url = f"{self.server_address}/api/object_info"
         data = self._fetch_json(url)
-
         self._object_info_cache = data
         return data
 
@@ -84,7 +122,12 @@ class ComfyHttpClient:
 
     def get_settings(self) -> dict:
         url = f"{self.server_address}/api/settings"
-        return self._fetch_json(url, 2)
+        # Pass the timeout explicitly – makes the intent clear
+        return self._fetch_json(url, timeout=2)
+
+    # --------------------------------------------------------------------- #
+    # Internals
+    # --------------------------------------------------------------------- #
 
     def _fetch_json(self, url: str, timeout: float = TIMEOUT_SECONDS) -> dict:
         with urllib.request.urlopen(url, timeout=timeout) as resp:
@@ -96,17 +139,30 @@ class ComfyHttpClient:
         with urllib.request.urlopen(req) as resp:
             return json.loads(resp.read())
 
-    def _encode_multipart_formdata(self, fields, files):
+    def _encode_multipart_formdata(
+        self,
+        fields: dict[str, str | dict],
+        files: list[tuple[str, str, bytes]],
+    ) -> tuple[bytes, str]:
         """
         Construct a multipart/form-data body.
 
-        :param fields: dict of form field name -> value
-        :param files: list of tuples (field_name, filename, file_bytes)
-        :return: (body_bytes, content_type_header)
+        Parameters
+        ----------
+        fields : dict of form field name → value
+            Textual fields to include in the payload.
+        files : list of tuples (field_name, filename, file_bytes)
+            Binary data to upload.
+
+        Returns
+        -------
+        tuple[bytes, str]
+            The raw request body and a ``Content-Type`` header value.
         """
         boundary = uuid.uuid4().hex
-        lines = []
+        lines: list[str] = []
 
+        # Add form fields (text only)
         for key, value in fields.items():
             lines.append(f"--{boundary}")
             lines.append(f'Content-Disposition: form-data; name="{key}"')
@@ -117,6 +173,7 @@ class ComfyHttpClient:
                 value_str = str(value)
             lines.append(value_str)
 
+        # Add file parts (binary)
         for field_name, filename, file_bytes in files:
             lines.append(f"--{boundary}")
             lines.append(
@@ -128,6 +185,7 @@ class ComfyHttpClient:
                 file_bytes = bytes(file_bytes)
             lines.append(file_bytes.decode("latin1"))  # binary data
 
+        # Final boundary
         lines.append(f"--{boundary}--")
         lines.append("")
         body = "\r\n".join(lines).encode("latin1")
