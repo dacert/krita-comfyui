@@ -20,8 +20,9 @@ jobs:
       - name: Dependencies
         run: pip install -r requirements.txt          
       - name: Typecheck
-        if: ${{ !cancelled() }}
-        run: ty check --project .
+        uses: jakebailey/pyright-action@v1
+        with:
+          pylance-version: latest-release
       - name: Format
         if: ${{ !cancelled() }}
         run: ruff format --diff
