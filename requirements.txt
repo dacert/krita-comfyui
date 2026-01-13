@@ -6,7 +6,7 @@
 # Development
 ruff
 PyQt5
-ty==0.0.11
+
 # Testing
 pytest
 pytest-qt
