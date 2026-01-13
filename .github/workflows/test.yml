@@ -3,7 +3,7 @@ on: [push, pull_request]
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -13,7 +13,7 @@ jobs:
       - name: Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
           cache: 'pip'
       - name: Dependencies
         run: pip install -r requirements.txt          
@@ -28,7 +28,7 @@ jobs:
         run: ruff check --output-format=github
   
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -38,7 +38,7 @@ jobs:
       - name: Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
           cache: 'pip'
       - name: Dependencies
         run: pip install -r requirements.txt
