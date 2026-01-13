@@ -5,7 +5,6 @@
 
 # Development
 ruff
-ty
 PyQt5
 
 # Testing
