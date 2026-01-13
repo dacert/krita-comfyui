@@ -20,16 +20,17 @@ jobs:
       - name: Dependencies
         run: pip install -r requirements.txt
       - name: Instal ty
-        run: pip install ty
-      - name: Typecheck
-        run: python -m ty check --project .
-        shell: bash
+        run: pip install ty      
       - name: Format
         if: ${{ !cancelled() }}
         run: ruff format --diff
       - name: Lint
         if: ${{ !cancelled() }}
         run: ruff check --output-format=github
+      - name: Typecheck
+        if: ${{ !cancelled() }}
+        run: python -m ty check --project .
+        shell: bash
   
   test:
     runs-on: ubuntu-latest
