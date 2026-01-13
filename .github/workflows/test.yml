@@ -19,10 +19,11 @@ jobs:
           cache: 'pip'
       - name: Dependencies
         run: pip install -r requirements.txt
-      - name: ty Action
-        uses: JacobCoffee/ty-action@v0.0.1
-        with:
-          args: 'check'
+      - name: Instal ty
+        run: pip install ty
+      - name: Typecheck
+        run: python -m ty check --project .
+        shell: bash
       - name: Format
         if: ${{ !cancelled() }}
         run: ruff format --diff
