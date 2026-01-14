@@ -1,3 +1,5 @@
+import time
+from typing import Dict, List
 from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 import asyncio
 from logging import Logger
@@ -38,13 +40,14 @@ class ComfyWorker(QRunnable):
 
     async def _run_async(self):
         """Async body that runs inside the thread."""
-        new_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(new_loop)
-
-        http_client = ComfyHttpClient(self.server_url)
-        client = ComfyClient(self.logger, self.server_url)
-
         try:
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+
+            http_client = ComfyHttpClient(self.server_url)
+            client = ComfyClient(self.logger, self.server_url)
+
+            images: Dict[str, List[bytes]] = {}
             async with client as c:
                 # Retrieve workflow from the server and convert it
                 wf_api = http_client.get_workflow_api(self.workflow_name)
@@ -72,6 +75,8 @@ class ComfyWorker(QRunnable):
                     timeout=5 * 60,
                     progress_callback=lambda p: self.signals.progress.emit(p),
                 )
+
+            time.sleep(0.001)
             self.signals.finished.emit(images)
             self.logger.debug(f"[ComfyWorker] Emit images: {len(images)}")
         except Exception as exc:

@@ -1,5 +1,6 @@
+from PyQt5.sip import voidptr
 import os
-from krita import DockWidget, Krita
+from .krita import DockWidget, Krita
 from PyQt5.QtWidgets import (
     QSizePolicy,
     QVBoxLayout,
@@ -225,7 +226,7 @@ class KritaComfyUi(DockWidget):
                 icon = QIcon(thumb)
                 item = QListWidgetItem(icon, f"{self.prompt_box.toPlainText().strip()}_{idx}.png")
                 # Store original data
-                item.setData(Qt.UserRole + 1, qimage)  # QImage
+                item.setData(Qt.ItemDataRole.UserRole + 1, qimage)  # QImage
 
                 self.thumbnail_list.addItem(item)
 
@@ -234,7 +235,8 @@ class KritaComfyUi(DockWidget):
     def _get_image_and_thumb(self, qimage: QImage):
         new_image = qimage.convertToFormat(QImage.Format_ARGB32)
         new_image = new_image.scaled(
-            QSize(self.image_prompt.width, self.image_prompt.height), Qt.KeepAspectRatio
+            QSize(self.image_prompt.width, self.image_prompt.height),
+            Qt.AspectRatioMode.KeepAspectRatio,
         )
 
         if self.image_prompt.has_selection_data():
@@ -249,7 +251,10 @@ class KritaComfyUi(DockWidget):
             pixmap = QPixmap.fromImage(new_image)
 
         thumb = pixmap.scaled(
-            128, 128, aspectRatioMode=Qt.KeepAspectRatio, transformMode=Qt.SmoothTransformation
+            128,
+            128,
+            aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio,
+            transformMode=Qt.TransformationMode.SmoothTransformation,
         )
         return (new_image, thumb)
 
@@ -270,7 +275,7 @@ class KritaComfyUi(DockWidget):
             return
 
         item = selected_items[0]
-        qimage = item.data(Qt.UserRole + 1)
+        qimage = item.data(Qt.ItemDataRole.UserRole + 1)
 
         if not isinstance(qimage, QImage):
             self.logger.debug("Retrieved data is not a QImage.")
@@ -327,9 +332,14 @@ class KritaComfyUi(DockWidget):
         chanel_size = new_layer.channels()[0].channelSize()
         if qimage.sizeInBytes() != 4 * chanel_size * doc.width() * doc.height():
             self.logger.debug("Image size is not correct!")
-            qimage = qimage.scaled(QSize(doc.width(), doc.height()), Qt.KeepAspectRatio)
+            qimage = qimage.scaled(
+                QSize(doc.width(), doc.height()), Qt.AspectRatioMode.KeepAspectRatio
+            )
 
-        ptr = qimage.bits()
+        ptr: voidptr | None = qimage.bits()
+        if ptr is None:
+            return
+
         ptr.setsize(qimage.byteCount())
         new_layer.setPixelData(QByteArray(ptr.asstring()), 0, 0, qimage.width(), qimage.height())
 

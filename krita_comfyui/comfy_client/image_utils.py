@@ -1,11 +1,15 @@
+from PyQt5.sip import voidptr
 from PyQt5.QtGui import QImage
-from PyQt5.QtCore import QBuffer, QIODevice
+from PyQt5.QtCore import QBuffer, QIODevice, QByteArray
 
 
-def reduce_alpha_by_selection(qimg: QImage, w: int, h: int, sel_bytes: bytearray) -> QImage:
-    ptr = qimg.bits()
+def reduce_alpha_by_selection(qimg: QImage, w: int, h: int, sel_bytes: QByteArray) -> QImage:
+    ptr: voidptr | None = qimg.bits()
+    if ptr is None:
+        return qimg
+
     ptr.setsize(h * w * 4)  # 4 bytes píxel (ARGB)
-    buf = bytearray(ptr)
+    buf = bytearray(ptr.asarray())
 
     total_pixels = w * h
     left_byte = 0
@@ -40,7 +44,7 @@ def reduce_alpha_by_selection(qimg: QImage, w: int, h: int, sel_bytes: bytearray
 
 def qimage_to_bytes(qimg: QImage, fmt: str = "PNG") -> bytes:
     buffer = QBuffer()
-    buffer.open(QIODevice.WriteOnly)
+    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
     qimg.save(buffer, fmt)
     byte_array: bytes = bytes(buffer.data())
     return byte_array

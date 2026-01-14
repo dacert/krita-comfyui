@@ -3,7 +3,7 @@ import logging.config
 from pathlib import Path
 
 
-LOGGING_CONFIG = {
+LOGGING_CONFIG: dict = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {

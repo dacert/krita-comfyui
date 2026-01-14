@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from PyQt5.QtCore import QRect
+from PyQt5.QtCore import QRect, QByteArray
 
 
 @dataclass
@@ -20,12 +20,12 @@ class ImagePrompt:
 
     image_bytes: bytes | None = field(default=None, repr=False)
 
-    sel_bytes: bytearray | None = field(default=None, repr=False)
-    inverted_sel_bytes: bytearray | None = field(default=None, repr=False)
+    sel_bytes: QByteArray | None = field(default=None, repr=False)
+    inverted_sel_bytes: QByteArray | None = field(default=None, repr=False)
     sel_rect: QRect | None = field(default=None, repr=False)
 
-    width: int | None = field(default=None, repr=False)
-    height: int | None = field(default=None, repr=False)
+    width: int = field(default=0, repr=False)
+    height: int = field(default=0, repr=False)
 
     def __post_init__(self):
         # Build the dependent fields using the *instance*'s image_id
@@ -41,7 +41,7 @@ class ImagePrompt:
     def has_selection_data(self) -> bool:
         return self.sel_bytes is not None
 
-    def get_input_name(self) -> bool:
+    def get_input_name(self) -> str | None:
         if not self.has_image_data():
             return None
         if self.has_selection_data():

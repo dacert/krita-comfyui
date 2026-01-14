@@ -1,4 +1,4 @@
-from krita import DockWidgetFactory, DockWidgetFactoryBase, Krita
+from .krita import DockWidgetFactory, DockWidgetFactoryBase, Krita
 from .krita_comfyui import KritaComfyUi
 
 DOCKER_ID = "krita_comfyui"
