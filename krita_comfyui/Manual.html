@@ -3,26 +3,34 @@
 
 <html xmlns="http://www.w3.org/1999/xhtml">
 <!--BBD's Krita Script Starter, Feb 2018 -->
-<head><title>Krita ComfyUI</title>
-</head>
-<body>
-<h3>Krita ComfyUI</h3>
-<p><strong>What this plugin does:</strong></p>
-<ul>
-    <li>Connects Krita to a remote ComfyUI server.</li>
-    <li>Lets you pick a workflow, enter a prompt and generate images.</li>
-    <li>Shows thumbnails of the results and lets you drop an image into the current document.</li>
-</ul>
 
-<h3>Usage</h3>
-<p><strong>Steps to use the plugin:</strong></p>
-<ol>
-    <li>Open the “Krita ComfyUi” dock widget from <code>Settings ▸ Dockers ▸ Krita ComfyUi</code>.</li>
-    <li>Enter or paste your ComfyUI server URL (e.g. <code>http://localhost:8188/</code>) in the “General” tab.</li>
-    <li>Switch to the “Workflow” tab, pick a workflow and configure its inputs.</li>
-    <li>Write a prompt in the text box below.</li>
-    <li>Click <strong>Generar</strong>.  A progress bar will show the status.</li>
-    <li>When thumbnails appear, select one and click <strong>Apply</strong> to create a paint layer with that image.</li>
-</ol>
+<head>
+    <title>Krita ComfyUI</title>
+</head>
+
+<body>
+    <h3>Krita ComfyUI</h3>
+    <p><strong>What this plugin does:</strong></p>
+    <ul>
+        <li>Connects Krita to a running ComfyUI server.</li>
+        <li>Lets you pick a workflow, enter a prompt and generate images directly from the Krita UI.</li>
+        <li>Shows thumbnails of the results and lets you drop an image into the current document.</li>
+    </ul>
+    <h3>Usage</h3>
+    <p><strong>Steps to use the plugin:</strong></p>
+    <ol>
+        <li>Open the “Krita ComfyUi” dock widget from <code>Settings ▸ Dockers ▸ Krita ComfyUi</code>.</li>
+        <li>Click the settings button at the top of the dock to open the configuration window.</li>
+        <li>In the **General** tab, paste your ComfyUI server URL (e.g. <code>http://localhost:8188/</code>).
+            <strong>Tip:</strong> If you run a local instance, start it before launching Krita so the plug‑in can
+            auto‑connect.
+        </li>
+        <li>In the **Workflow** tab, choose a workflow and configure its inputs.</li>
+        <li>Enter a prompt in the text box.</li>
+        <li>Click <strong>Generate</strong>. A progress bar will show the status.</li>
+        <li>When thumbnails appear, select one and click <strong>Apply</strong> to create a paint layer with that image.
+        </li>
+    </ol>
 </body>
+
 </html>
