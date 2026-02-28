@@ -27,14 +27,15 @@
    - Minimum version: 5.2.0.
 
 3. **ComfyUI Server**
-   The plugin does not install or run ComfyUI; it must already be running before opening Krita. You can use the official version available at [github.com/comfyanonymous/ComfyUI](https://github.com/comfyanonymous/ComfyUI).
+   The plugin does not install or run ComfyUI; it must already be running before opening Krita. You can use the official version available at [ComfyUI](https://github.com/Comfy-Org/ComfyUI).
 
 4. **Download & Install the Plug‑in**
-| Step | Action |
-|------|--------|
-| 1 | Grab the latest release ZIP: <https://github.com/dacert/krita-comfyui/releases/latest> |
-| 2 | In Krita, go to `Tools ▸ Scripts ▸ Import Python Plugin from File…` and select the ZIP. |
-| 3 | Restart Krita. |
+
+   | Step | Action |
+   |------|--------|
+   | 1 | Grab the latest release ZIP: <https://github.com/dacert/krita-comfyui/releases/latest> |
+   | 2 | In Krita, go to `Tools ▸ Scripts ▸ Import Python Plugin from File…` and select the ZIP. |
+   | 3 | Restart Krita. |
 
 ## Initial Setup
 
