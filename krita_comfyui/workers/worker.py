@@ -1,5 +1,6 @@
-from PyQt5.QtCore import QRunnable, pyqtSignal, QObject
 import time
+
+from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 
 
 class WorkerSignals(QObject):

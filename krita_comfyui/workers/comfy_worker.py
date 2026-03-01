@@ -1,14 +1,15 @@
-import time
-from typing import Dict, List
-from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 import asyncio
+import time
 from logging import Logger
+from typing import Dict, List
+
+from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 
 from krita_comfyui.comfy_client.image_prompt import ImagePrompt
+
+from ..comfy_client import ComfyClient, ComfyHttpClient, find_output_node
 from ..config import Config
-from ..comfy_client import ComfyClient, ComfyHttpClient
 from ..prompt_builder import PromptBuilder
-from ..comfy_client import find_output_node
 
 
 class ComfyWorkerSignals(QObject):

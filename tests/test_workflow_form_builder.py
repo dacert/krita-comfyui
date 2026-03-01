@@ -1,6 +1,6 @@
 import pytest
-from PyQt5.QtWidgets import QWidget, QLabel, QHBoxLayout, QFormLayout
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QWidget
 
 from krita_comfyui.settings.workflow_form_builder import WorkflowFormBuilder
 

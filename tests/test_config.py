@@ -1,7 +1,8 @@
 import json
+
 import pytest
 
-from krita_comfyui.config import Config, WorkflowInput, WorkflowConfig, DEFAULT_URL
+from krita_comfyui.config import DEFAULT_URL, Config, WorkflowConfig, WorkflowInput
 
 
 @pytest.fixture

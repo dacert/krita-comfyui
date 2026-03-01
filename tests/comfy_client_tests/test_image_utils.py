@@ -1,14 +1,14 @@
-from PyQt5.sip import voidptr
 import os
 import tempfile
 
 import pytest
-from PyQt5.QtGui import QImage, QColor
 from PyQt5.QtCore import QByteArray
+from PyQt5.QtGui import QColor, QImage
+from PyQt5.sip import voidptr
 
 from krita_comfyui.comfy_client.image_utils import (
-    reduce_alpha_by_selection,
     qimage_to_bytes,
+    reduce_alpha_by_selection,
 )
 
 # ----------------------------------------------------------------------

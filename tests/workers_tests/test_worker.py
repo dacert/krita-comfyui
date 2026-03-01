@@ -1,5 +1,5 @@
-import unittest
 import sys
+import unittest
 from time import sleep
 
 from PyQt5.QtCore import QThreadPool, pyqtSlot

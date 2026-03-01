@@ -1,13 +1,14 @@
-from time import sleep
 import asyncio
+from time import sleep
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from PyQt5.QtCore import QObject, QCoreApplication, QThreadPool
+from PyQt5.QtCore import QCoreApplication, QObject, QThreadPool
+
+from krita_comfyui.config import Config, WorkflowConfig, WorkflowInput
 
 # Import the module under test (adjust the import path if necessary)
 from krita_comfyui.workers.comfy_worker import ComfyWorker
-from krita_comfyui.config import Config, WorkflowConfig, WorkflowInput
 
 
 class SignalCatcher(QObject):

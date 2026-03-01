@@ -1,16 +1,17 @@
 import asyncio
 import json
 import uuid
-from PyQt5.QtGui import QImage
+from logging import Logger
 from typing import Any, Callable, Dict, List
 from urllib.parse import urlparse
-from logging import Logger
 
+from PyQt5.QtGui import QImage
+
+from ..websockets.src.websockets import ClientConnection
+from ..websockets.src.websockets import connect as websockets_connect
 from ..websockets.src.websockets.exceptions import ConnectionClosedOK
-from ..websockets.src.websockets import ClientConnection, connect as websockets_connect
-
-from .image_prompt import ImagePrompt
 from .comfy_http_client import ComfyHttpClient
+from .image_prompt import ImagePrompt
 from .image_utils import qimage_to_bytes, reduce_alpha_by_selection
 
 

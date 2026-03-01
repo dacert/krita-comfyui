@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from PyQt5.QtCore import QRect, QByteArray
+
+from PyQt5.QtCore import QByteArray, QRect
 
 
 @dataclass

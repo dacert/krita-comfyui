@@ -15,7 +15,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-ignore = ["E741"]
+ignore = ["E741", "BLE001", "UP035", "UP006"]
 
 [tool.ty.src]
 include = ["krita_comfyui", "tests"]

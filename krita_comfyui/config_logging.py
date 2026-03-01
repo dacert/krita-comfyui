@@ -1,7 +1,6 @@
-from logging import Logger
 import logging.config
+from logging import Logger
 from pathlib import Path
-
 
 LOGGING_CONFIG: dict = {
     "version": 1,

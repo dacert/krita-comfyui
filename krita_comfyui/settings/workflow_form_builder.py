@@ -1,6 +1,8 @@
 from typing import Callable, Union
+
 from PyQt5.QtCore import pyqtBoundSignal
-from PyQt5.QtWidgets import QWidget, QFormLayout, QComboBox, QLabel, QPushButton, QHBoxLayout
+from PyQt5.QtWidgets import QComboBox, QFormLayout, QHBoxLayout, QLabel, QPushButton, QWidget
+
 from ..config import WorkflowConfig
 
 

@@ -3,9 +3,11 @@ Typed configuration model and persistence helpers.
 """
 
 import json
+from dataclasses import dataclass, field
+from dataclasses import fields as _dc_fields
 from pathlib import Path
-from typing import List, Dict, Any
-from dataclasses import dataclass, field, fields as _dc_fields
+from typing import Any, Dict, List
+
 from .config_logging import getLogger
 
 DEFAULT_URL = "http://localhost:8188"

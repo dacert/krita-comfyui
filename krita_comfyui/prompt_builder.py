@@ -2,9 +2,10 @@
 Builds the JSON payload to send to Comfy.
 """
 
-import random
 import copy
+import random
 from typing import Any, Dict
+
 from .config import Config
 
 

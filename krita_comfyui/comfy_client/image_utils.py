@@ -1,6 +1,6 @@
-from PyQt5.sip import voidptr
+from PyQt5.QtCore import QBuffer, QByteArray, QIODevice
 from PyQt5.QtGui import QImage
-from PyQt5.QtCore import QBuffer, QIODevice, QByteArray
+from PyQt5.sip import voidptr
 
 
 def reduce_alpha_by_selection(qimg: QImage, w: int, h: int, sel_bytes: QByteArray) -> QImage:
@@ -21,8 +21,7 @@ def reduce_alpha_by_selection(qimg: QImage, w: int, h: int, sel_bytes: QByteArra
             base = idx_left * 4
             selectedness = int.from_bytes(sel_bytes[idx_left], "big")
             new_alpha = buf[base + 3] - selectedness
-            if new_alpha < 0:
-                new_alpha = 0
+            new_alpha = max(new_alpha, 0)
             buf[base + 3] = new_alpha
 
         if right_byte > left_byte:
@@ -31,8 +30,7 @@ def reduce_alpha_by_selection(qimg: QImage, w: int, h: int, sel_bytes: QByteArra
                 base = idx_right * 4
                 selectedness = int.from_bytes(sel_bytes[idx_right], "big")
                 new_alpha = buf[base + 3] - selectedness
-                if new_alpha < 0:
-                    new_alpha = 0
+                new_alpha = max(new_alpha, 0)
                 buf[base + 3] = new_alpha
 
         left_byte += 4

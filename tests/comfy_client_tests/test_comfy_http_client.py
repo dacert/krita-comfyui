@@ -1,8 +1,9 @@
 import json
 import types
-import pytest
 import urllib.request
 from urllib.parse import quote
+
+import pytest
 
 from krita_comfyui.comfy_client.comfy_http_client import ComfyHttpClient
 
