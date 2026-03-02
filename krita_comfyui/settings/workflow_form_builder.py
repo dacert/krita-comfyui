@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 from PyQt5.QtCore import pyqtBoundSignal
 from PyQt5.QtWidgets import QComboBox, QFormLayout, QHBoxLayout, QLabel, QPushButton, QWidget

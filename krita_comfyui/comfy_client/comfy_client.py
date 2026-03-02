@@ -1,8 +1,9 @@
 import asyncio
 import json
 import uuid
+from collections.abc import Callable
 from logging import Logger
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import urlparse
 
 from PyQt5.QtGui import QImage
