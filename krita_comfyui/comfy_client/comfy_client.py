@@ -2,7 +2,7 @@ import asyncio
 import json
 import uuid
 from logging import Logger
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 from PyQt5.QtGui import QImage
@@ -57,11 +57,11 @@ class ComfyClient:
         *,
         timeout: float | None = None,
         progress_callback: Callable[[float], Any] | None = None,
-    ) -> Dict[str, List[bytes]]:
+    ) -> dict[str, list[bytes]]:
         """
         Receive images from the server for a given prompt.
         """
-        output_images: Dict[str, List[bytes]] = {}
+        output_images: dict[str, list[bytes]] = {}
         current_node: str | None = None
         cache_nodes = 0
 
@@ -158,7 +158,7 @@ class ComfyClient:
         image_prompt: ImagePrompt | None = None,
         timeout: float | None = None,
         progress_callback: Callable[[float], Any] | None = None,
-    ) -> Dict[str, List[bytes]]:
+    ) -> dict[str, list[bytes]]:
 
         if image_prompt:
             self._image_uploader(image_prompt)

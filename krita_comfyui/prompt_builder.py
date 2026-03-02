@@ -4,7 +4,7 @@ Builds the JSON payload to send to Comfy.
 
 import copy
 import random
-from typing import Any, Dict
+from typing import Any
 
 from .config import Config
 
@@ -15,7 +15,7 @@ class PromptBuilder:
 
     def build(
         self,
-        wf_api: Dict[str, Any],
+        wf_api: dict[str, Any],
         workflow_name: str,
         base_prompt: str,
         image_input_name: str | None = None,

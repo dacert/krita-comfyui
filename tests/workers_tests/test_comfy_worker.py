@@ -274,7 +274,7 @@ def test_worker_success_with_image(
     assert catcher.finished[0] == expected_images
 
     mock_client.run_workflow.assert_awaited_once()
-    args, kwargs = mock_client.run_workflow.call_args
+    _args, kwargs = mock_client.run_workflow.call_args
     assert kwargs.get("image_prompt") is image_prompt
 
 

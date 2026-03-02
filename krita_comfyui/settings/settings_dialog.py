@@ -212,8 +212,8 @@ class SettingsDialog(QDialog):
             saved = True
             try:
                 wf_data = self._get_workflow_api(server_url, name)
-            except Exception as e:
-                self.logger.exception(e)
+            except Exception:
+                self.logger.exception("Get workflow api error:")
             for key, prop_cfg in matching_cfg.inputs.items():
                 node_id, inp_name = prop_cfg.node_id, prop_cfg.property
                 if key in self.OPTIONAL_PROPERTIES and inp_name is None:
@@ -297,9 +297,9 @@ class SettingsDialog(QDialog):
             wf_data = next((w[-1] for w in self.loaded_workflows if w[0] == wf_name), {})
             if not wf_data:
                 wf_data = self._get_workflow_api(self.cfg.comfyui_url, wf_name)
-        except Exception as e:
-            self.logger.exception(e)
-            QMessageBox.warning(self, "Error", f"Cannot load workflow: {e}")
+        except Exception:
+            self.logger.exception("Cannot load workflow:")
+            QMessageBox.warning(self, "Error", "Cannot load workflow")
             return
 
         # Find existing config for this workflow (if any)

@@ -1,7 +1,5 @@
 import asyncio
-import time
 from logging import Logger
-from typing import Dict, List
 
 from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 
@@ -10,6 +8,10 @@ from krita_comfyui.comfy_client.image_prompt import ImagePrompt
 from ..comfy_client import ComfyClient, ComfyHttpClient, find_output_node
 from ..config import Config
 from ..prompt_builder import PromptBuilder
+
+
+class SaveImageWebsocketOutputNodeNotFoundError(Exception):
+    """Raised when no 'SaveImageWebsocket' output node is found in the workflow."""
 
 
 class ComfyWorkerSignals(QObject):
@@ -48,7 +50,7 @@ class ComfyWorker(QRunnable):
             http_client = ComfyHttpClient(self.server_url)
             client = ComfyClient(self.logger, self.server_url)
 
-            images: Dict[str, List[bytes]] = {}
+            images: dict[str, list[bytes]] = {}
             async with client as c:
                 # Retrieve workflow from the server and convert it
                 wf_api = http_client.get_workflow_api(self.workflow_name)
@@ -66,7 +68,9 @@ class ComfyWorker(QRunnable):
                 if output_node is not None:
                     node_id, _ = output_node
                 else:
-                    raise Exception("No 'SaveImageWebsocket' output node found.")
+                    raise SaveImageWebsocketOutputNodeNotFoundError(
+                        "No 'SaveImageWebsocket' output node found."
+                    )
                 self.logger.debug(f"[ComfyWorker] Output_node: {node_id}")
 
                 images = await c.run_workflow(
@@ -77,12 +81,11 @@ class ComfyWorker(QRunnable):
                     progress_callback=lambda p: self.signals.progress.emit(p),
                 )
 
-            time.sleep(0.001)
             self.signals.finished.emit(images)
             self.logger.debug(f"[ComfyWorker] Emit images: {len(images)}")
         except Exception as exc:
             self.signals.error.emit(str(exc))
-            self.logger.exception(f"[ComfyWorker] Error {exc}")
+            self.logger.exception("[ComfyWorker] Error")
 
     def run(self):
         """Method that connects to the Qt thread."""
