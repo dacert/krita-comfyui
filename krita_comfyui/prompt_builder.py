@@ -47,7 +47,8 @@ class PromptBuilder:
 
         # Handle optional image input
         image_input = inputs_map.get("image_loader")
-        if image_input_name and image_input.node_id:
+        # Only set image input if it exists in the config and a name was provided
+        if image_input_name and image_input and image_input.node_id:
             payload[image_input.node_id]["inputs"][image_input.property] = image_input_name
 
         return payload
