@@ -1,26 +1,27 @@
 import re
 from pathlib import Path
-from krita import Krita  # ty:ignore[unresolved-import]
-from PyQt5.QtWidgets import (
-    QDialog,
-    QVBoxLayout,
-    QTabWidget,
-    QPushButton,
-    QHBoxLayout,
-    QWidget,
-    QLineEdit,
-    QLabel,
-    QComboBox,
-    QMessageBox,
-    QCheckBox,
-)
-from PyQt5.QtCore import QThreadPool
 
-from .workflow_form_builder import WorkflowFormBuilder
-from ..workers import Worker
-from ..config_logging import getLogger
-from ..config import Config, WorkflowConfig, WorkflowInput
+from krita import Krita  # ty:ignore[unresolved-import]
+from PyQt5.QtCore import QThreadPool
+from PyQt5.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
+
 from ..comfy_client import ComfyHttpClient
+from ..config import Config, WorkflowConfig, WorkflowInput
+from ..config_logging import getLogger
+from ..workers import Worker
+from .workflow_form_builder import WorkflowFormBuilder
 
 
 class SettingsDialog(QDialog):
@@ -197,11 +198,10 @@ class SettingsDialog(QDialog):
         server_list = self._get_workflows_list(self.cfg.comfyui_url)
         wf_names = sorted(Path(item["path"]).name for item in server_list if "path" in item)
         cfg_map = {w.workflow_name: w for w in self.cfg.workflows}
-        results = [
+        return [
             self._fetch_single_workflow(name, self.cfg.comfyui_url, cfg_map.get(name))
             for name in wf_names
         ]
-        return results
 
     def _fetch_single_workflow(self, name: str, server_url: str, matching_cfg=None):
         missing_ref = False
@@ -212,8 +212,8 @@ class SettingsDialog(QDialog):
             saved = True
             try:
                 wf_data = self._get_workflow_api(server_url, name)
-            except Exception as e:
-                self.logger.exception(e)
+            except Exception:
+                self.logger.exception("Get workflow api error:")
             for key, prop_cfg in matching_cfg.inputs.items():
                 node_id, inp_name = prop_cfg.node_id, prop_cfg.property
                 if key in self.OPTIONAL_PROPERTIES and inp_name is None:
@@ -297,9 +297,9 @@ class SettingsDialog(QDialog):
             wf_data = next((w[-1] for w in self.loaded_workflows if w[0] == wf_name), {})
             if not wf_data:
                 wf_data = self._get_workflow_api(self.cfg.comfyui_url, wf_name)
-        except Exception as e:
-            self.logger.exception(e)
-            QMessageBox.warning(self, "Error", f"Cannot load workflow: {e}")
+        except Exception:
+            self.logger.exception("Cannot load workflow:")
+            QMessageBox.warning(self, "Error", "Cannot load workflow")
             return
 
         # Find existing config for this workflow (if any)

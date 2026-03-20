@@ -3,15 +3,17 @@ Typed configuration model and persistence helpers.
 """
 
 import json
+from dataclasses import dataclass, field
+from dataclasses import fields as _dc_fields
 from pathlib import Path
-from typing import List, Dict, Any
-from dataclasses import dataclass, field, fields as _dc_fields
+from typing import Any
+
 from .config_logging import getLogger
 
 DEFAULT_URL = "http://localhost:8188"
 
 
-def _filter_input_dict(raw: Dict[str, Any], cls):
+def _filter_input_dict(raw: dict[str, Any], cls):
     """
     Return a new dict containing only the keys that belong to ``cls``.
 
@@ -40,14 +42,14 @@ class WorkflowInput:
 @dataclass
 class WorkflowConfig:
     workflow_name: str
-    inputs: Dict[str, WorkflowInput] = field(default_factory=dict)
+    inputs: dict[str, WorkflowInput] = field(default_factory=dict)
 
 
 @dataclass
 class Config:
     logger: bool
     comfyui_url: str
-    workflows: List[WorkflowConfig] = field(default_factory=list)
+    workflows: list[WorkflowConfig] = field(default_factory=list)
 
     @classmethod
     def load(cls, path: Path) -> "Config":

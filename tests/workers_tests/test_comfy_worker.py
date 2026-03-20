@@ -1,13 +1,14 @@
-from time import sleep
 import asyncio
+from time import sleep
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from PyQt5.QtCore import QObject, QCoreApplication, QThreadPool
+from PyQt5.QtCore import QCoreApplication, QObject, QThreadPool
+
+from krita_comfyui.config import Config, WorkflowConfig, WorkflowInput
 
 # Import the module under test (adjust the import path if necessary)
 from krita_comfyui.workers.comfy_worker import ComfyWorker
-from krita_comfyui.config import Config, WorkflowConfig, WorkflowInput
 
 
 class SignalCatcher(QObject):
@@ -273,7 +274,7 @@ def test_worker_success_with_image(
     assert catcher.finished[0] == expected_images
 
     mock_client.run_workflow.assert_awaited_once()
-    args, kwargs = mock_client.run_workflow.call_args
+    _args, kwargs = mock_client.run_workflow.call_args
     assert kwargs.get("image_prompt") is image_prompt
 
 

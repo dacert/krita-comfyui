@@ -1,8 +1,9 @@
 import json
-import uuid
-from .workflow_utils import to_api_format
-from urllib.parse import urlencode, urljoin, quote
 import urllib.request
+import uuid
+from urllib.parse import quote, urlencode, urljoin
+
+from .workflow_utils import to_api_format
 
 
 class ComfyHttpClient:

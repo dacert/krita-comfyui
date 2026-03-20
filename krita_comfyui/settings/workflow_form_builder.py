@@ -1,6 +1,8 @@
-from typing import Callable, Union
+from collections.abc import Callable
+
 from PyQt5.QtCore import pyqtBoundSignal
-from PyQt5.QtWidgets import QWidget, QFormLayout, QComboBox, QLabel, QPushButton, QHBoxLayout
+from PyQt5.QtWidgets import QComboBox, QFormLayout, QHBoxLayout, QLabel, QPushButton, QWidget
+
 from ..config import WorkflowConfig
 
 
@@ -14,19 +16,19 @@ class WorkflowFormBuilder:
     can read/write values without having to know the underlying layout.
     """
 
-    PROPERTIES = [
+    PROPERTIES = (
         "prompt",
         # "negative_prompt",
         "seed",
         "image_loader",
         # "num_image_sampler",
-    ]
+    )
 
-    OPTIONAL_PROPERTIES = [
+    OPTIONAL_PROPERTIES = (
         "image_loader",
         "num_image_sampler",
         "negative_prompt",
-    ]
+    )
 
     def __init__(self, parent: QWidget):
         self.parent = parent
@@ -84,8 +86,8 @@ class WorkflowFormBuilder:
 
     def add_action_buttons(
         self,
-        update_cb: Union[Callable[..., None], pyqtBoundSignal],
-        delete_cb: Union[Callable[..., None], pyqtBoundSignal],
+        update_cb: Callable[..., None] | pyqtBoundSignal,
+        delete_cb: Callable[..., None] | pyqtBoundSignal,
         can_delete: bool,
     ) -> None:
         """

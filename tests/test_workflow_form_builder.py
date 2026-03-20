@@ -1,6 +1,6 @@
 import pytest
-from PyQt5.QtWidgets import QWidget, QLabel, QHBoxLayout, QFormLayout
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QWidget
 
 from krita_comfyui.settings.workflow_form_builder import WorkflowFormBuilder
 
@@ -70,7 +70,7 @@ def test_build_from_api_populates_selectors(builder):
     expected_props = set(builder.PROPERTIES)
     assert set(builder.selectors.keys()) == expected_props
 
-    for prop, (combo, options) in builder.selectors.items():
+    for combo, options in builder.selectors.values():
         # The first option should be the null value
         assert options[0] == ("", None, None)
         # Remaining options come from wf_data

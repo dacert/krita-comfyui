@@ -1,16 +1,18 @@
 import asyncio
 import json
 import uuid
-from PyQt5.QtGui import QImage
-from typing import Any, Callable, Dict, List
-from urllib.parse import urlparse
+from collections.abc import Callable
 from logging import Logger
+from typing import Any
+from urllib.parse import urlparse
 
+from PyQt5.QtGui import QImage
+
+from ..websockets.src.websockets import ClientConnection
+from ..websockets.src.websockets import connect as websockets_connect
 from ..websockets.src.websockets.exceptions import ConnectionClosedOK
-from ..websockets.src.websockets import ClientConnection, connect as websockets_connect
-
-from .image_prompt import ImagePrompt
 from .comfy_http_client import ComfyHttpClient
+from .image_prompt import ImagePrompt
 from .image_utils import qimage_to_bytes, reduce_alpha_by_selection
 
 
@@ -56,11 +58,11 @@ class ComfyClient:
         *,
         timeout: float | None = None,
         progress_callback: Callable[[float], Any] | None = None,
-    ) -> Dict[str, List[bytes]]:
+    ) -> dict[str, list[bytes]]:
         """
         Receive images from the server for a given prompt.
         """
-        output_images: Dict[str, List[bytes]] = {}
+        output_images: dict[str, list[bytes]] = {}
         current_node: str | None = None
         cache_nodes = 0
 
@@ -157,7 +159,7 @@ class ComfyClient:
         image_prompt: ImagePrompt | None = None,
         timeout: float | None = None,
         progress_callback: Callable[[float], Any] | None = None,
-    ) -> Dict[str, List[bytes]]:
+    ) -> dict[str, list[bytes]]:
 
         if image_prompt:
             self._image_uploader(image_prompt)

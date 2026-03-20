@@ -3,8 +3,8 @@ from copy import deepcopy
 
 import pytest
 
-from krita_comfyui.prompt_builder import PromptBuilder
 from krita_comfyui.config import Config, WorkflowConfig, WorkflowInput
+from krita_comfyui.prompt_builder import PromptBuilder
 
 
 @pytest.fixture

@@ -1,8 +1,9 @@
 import json
 import types
-import pytest
 import urllib.request
 from urllib.parse import quote
+
+import pytest
 
 from krita_comfyui.comfy_client.comfy_http_client import ComfyHttpClient
 
@@ -64,23 +65,23 @@ def mock_urlopen(monkeypatch):
     "kwargs,expected_in_body",
     [
         (
-            dict(
-                path="images",
-                file_name="test.png",
-                file_bytes=b"dummy image data",
-                subfolder="cats",
-                ref="ref.png",
-                ref_subfolder="refs",
-                overwrite=True,
-            ),
+            {
+                "path": "images",
+                "file_name": "test.png",
+                "file_bytes": b"dummy image data",
+                "subfolder": "cats",
+                "ref": "ref.png",
+                "ref_subfolder": "refs",
+                "overwrite": True,
+            },
             ["original_ref", "overwrite", "subfolder"],
         ),
         (
-            dict(
-                path="images",
-                file_name="noopt.png",
-                file_bytes=b"",
-            ),
+            {
+                "path": "images",
+                "file_name": "noopt.png",
+                "file_bytes": b"",
+            },
             [],
         ),
     ],

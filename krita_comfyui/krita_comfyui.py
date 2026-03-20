@@ -1,31 +1,31 @@
-from PyQt5.sip import voidptr
 import os
-from .krita import DockWidget, Krita
-from PyQt5.QtWidgets import (
-    QSizePolicy,
-    QVBoxLayout,
-    QPlainTextEdit,
-    QPushButton,
-    QHBoxLayout,
-    QWidget,
-    QToolButton,
-    QLabel,
-    QComboBox,
-    QMessageBox,
-    QProgressBar,
-    QListWidget,
-    QListWidgetItem,
-)
-from PyQt5.QtCore import QThreadPool, pyqtSlot, QSize, QByteArray, Qt, QRect
-from PyQt5.QtGui import QImage, QIcon, QPixmap
 from pathlib import Path
 
-from .settings import SettingsDialog
-from .comfy_client import ComfyHttpClient, ImagePrompt
-from .config_logging import init_logging, getLogger
-from .workers import ComfyWorker
+from PyQt5.QtCore import QByteArray, QRect, QSize, Qt, QThreadPool, pyqtSlot
+from PyQt5.QtGui import QIcon, QImage, QPixmap
+from PyQt5.QtWidgets import (
+    QComboBox,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPlainTextEdit,
+    QProgressBar,
+    QPushButton,
+    QSizePolicy,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
+from PyQt5.sip import voidptr
+
+from .comfy_client import ComfyHttpClient, ImagePrompt, reduce_alpha_by_selection
 from .config import Config
-from .comfy_client import reduce_alpha_by_selection
+from .config_logging import getLogger, init_logging
+from .krita import DockWidget, Krita
+from .settings import SettingsDialog
+from .workers import ComfyWorker
 
 DOCKER_TITLE = "Krita ComfyUi"
 
