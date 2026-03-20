@@ -1,0 +1,46 @@
+{
+    "100": {
+        "inputs": {"image": "test_image.png"},
+        "class_type": "ImageLoader",
+        "_meta": {"title": "ImageLoader"}
+    },
+    "200:20001": {
+        "inputs": {"image": "test_image.png"},
+        "class_type": "LoadImage",
+        "_meta": {"title": "LoadImage"}
+    },
+    "200:20002": {
+        "inputs": {"img": ["200:20001", 0]},
+        "class_type": "SubgraphNested",
+        "_meta": {"title": "SubgraphNested"}
+    },
+    "200": {
+        "inputs": {
+            "image": ["100", 0],
+            "strength": 1
+        },
+        "class_type": "Subgraph1",
+        "_meta": {"title": "Subgraph1"}
+    },
+    "201:30001": {
+        "inputs": {
+            "image": ["200", 0],
+            "mode": "1"
+        },
+        "class_type": "ImageScale",
+        "_meta": {"title": "ImageScale"}
+    },
+    "201": {
+        "inputs": {
+            "input1": ["200", 0],
+            "mode": "2"
+        },
+        "class_type": "Subgraph2",
+        "_meta": {"title": "Subgraph2"}
+    },
+    "300": {
+        "inputs": {"images": ["201", 0]},
+        "class_type": "SaveImageWebsocket",
+        "_meta": {"title": "SaveImageWebsocket"}
+    }
+}

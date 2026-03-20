@@ -1,0 +1,104 @@
+{
+  "nodes": [
+    {
+      "id": 100,
+      "type": "ImageLoader",
+      "inputs": [],
+      "outputs": [{ "name": "IMAGE", "type": "IMAGE" }],
+      "widgets_values": ["test_image.png"]
+    },
+    {
+      "id": 200,
+      "type": "Subgraph1",
+      "inputs": [{ "name": "image", "link": [100, 0] }],
+      "outputs": [{ "name": "output1", "type": "IMAGE" }],
+      "widgets_values": [1]
+    },
+    {
+      "id": 201,
+      "type": "Subgraph2",
+      "inputs": [{ "name": "input1", "link": [200, 0] }],
+      "outputs": [{ "name": "output2", "type": "IMAGE" }],
+      "widgets_values": [2]
+    },
+    {
+      "id": 300,
+      "type": "SaveImageWebsocket",
+      "inputs": [{ "name": "images", "link": [201, 0] }],
+      "outputs": [],
+      "widgets_values": ["Save Image"]
+    }
+  ],
+  "links": [
+    [1, 100, 0, 200, 0, "IMAGE"],
+    [2, 200, 0, 201, 0, "IMAGE"],
+    [3, 201, 0, 300, 0, "IMAGE"]
+  ],
+  "definitions": {
+    "subgraphs": [
+      {
+        "id": "subgraph-1",
+        "version": 1,
+        "name": "Subgraph1",
+        "inputNode": { "id": -10 },
+        "outputNode": { "id": -20 },
+        "inputs": [
+          { "id": "in1", "name": "image", "type": "IMAGE", "linkIds": [1] },
+          { "id": "in2", "name": "strength", "type": "FLOAT", "linkIds": [] }
+        ],
+        "outputs": [
+          {
+            "id": "out1",
+            "name": "output1",
+            "type": "IMAGE",
+            "linkIds": [2]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 20001,
+            "type": "LoadImage",
+            "inputs": [],
+            "outputs": [{ "name": "image", "type": "IMAGE" }],
+            "widgets_values": []
+          },
+          {
+            "id": 20002,
+            "type": "SubgraphNested",
+            "inputs": [{ "name": "img", "link": [20001, 0] }],
+            "outputs": [{ "name": "result", "type": "IMAGE" }],
+            "widgets_values": [1]
+          }
+        ]
+      },
+      {
+        "id": "subgraph-2",
+        "version": 1,
+        "name": "Subgraph2",
+        "inputNode": { "id": -10 },
+        "outputNode": { "id": -20 },
+        "inputs": [
+          { "id": "in1", "name": "input1", "type": "IMAGE", "linkIds": [2] },
+          { "id": "in2", "name": "mode", "type": "STRING", "linkIds": [] }
+        ],
+        "outputs": [
+          {
+            "id": "out1",
+            "name": "output2",
+            "type": "IMAGE",
+            "linkIds": [3]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 30001,
+            "type": "ImageScale",
+            "inputs": [{ "name": "image", "link": [30000, 0] }],
+            "outputs": [{ "name": "result", "type": "IMAGE" }],
+            "widgets_values": [1]
+          }
+        ]
+      }
+    ]
+  }
+}
