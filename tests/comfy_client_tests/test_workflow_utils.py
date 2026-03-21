@@ -344,10 +344,10 @@ def test_to_api_format_subgraph_isolated_nodes(raw_workflow_with_subgraph, objec
         if node_id.startswith("433:"):
             # These nodes are inside a subgraph
             # Verify that their inputs are correctly formatted
-            for input_name, input_val in node["inputs"].items():
+            for input_val in node["inputs"].values():
                 if isinstance(input_val, list):
                     # Should be [node_id, slot]
-                    node_id_part, slot = input_val
+                    node_id_part, _slot = input_val
                     assert isinstance(node_id_part, str), (
                         f"Node ID should be string: {node_id_part}"
                     )

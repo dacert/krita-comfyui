@@ -97,7 +97,6 @@ def api_nodes(workflow: dict, object_info: dict, subgraph_defs: dict, current_no
 
         widget_vals = n.get("widgets_values", [])
         widget_index = 0
-
         widgets = {}
         widget_inputs = [i for i in n.get("inputs", []) if i.get("widget")]
         for widget_input in widget_inputs:
@@ -110,63 +109,44 @@ def api_nodes(workflow: dict, object_info: dict, subgraph_defs: dict, current_no
             if len(inp_info) > 1 and inp_info[1].get("control_after_generate", False):
                 widget_index += 1
 
-        widget_index = 0
         inputs: dict[str, Any] = {}
+        node_key = f"{current_node['id']}:{node_id}" if current_node and current_node["type"] in subgraph_defs else node_id
 
-        if current_node and current_node["type"] in subgraph_defs:
-            for inp in n.get("inputs", []):
-                link_id = inp.get("link")
-                name = inp.get("name")
+        for inp in n.get("inputs", []):
+            link_id = inp.get("link")
+            name = inp.get("name")
 
-                if link_id is None:
-                    # No link – use the widget value
-                    if name in widgets:
-                        inputs[inp["name"]] = widgets[name]
-                else:
-                    src_node, src_slot = link_map[link_id]
-                    if src_node == -10:
-                        external_link = current_node["inputs"][src_slot]["link"]
-                        input_name = current_node["inputs"][src_slot]["name"]
-                        if not external_link:
-                            if input_name in current_node_widgets:
-                                inputs[inp["name"]] = current_node_widgets[input_name]
-                            elif name in widgets:
-                                inputs[inp["name"]] = widgets[name]
-                        else:
-                            inputs[inp["name"]] = [
-                                f"{current_node['id']}:{src_node!s}",
-                                external_link,
-                            ]
+            if link_id is None:
+                # No link – use the widget value
+                if name in widgets:
+                    inputs[inp["name"]] = widgets[name]
+            elif current_node and current_node["type"] in subgraph_defs:
+                src_node, src_slot = link_map[link_id]
+                if src_node == -10:
+                    external_link = current_node["inputs"][src_slot]["link"]
+                    input_name = current_node["inputs"][src_slot]["name"]
+                    if not external_link:
+                        if input_name in current_node_widgets:
+                            inputs[inp["name"]] = current_node_widgets[input_name]
+                        elif name in widgets:
+                            inputs[inp["name"]] = widgets[name]
                     else:
-                        inputs[inp["name"]] = [f"{current_node['id']}:{src_node!s}", src_slot]
-
-            node_entry: dict[str, Any] = {
-                "inputs": inputs,
-                "class_type": node_type,
-                "_meta": {"title": title},
-            }
-
-            nodes[f"{current_node['id']}:{node_id}"] = node_entry
-        else:
-            for inp in n.get("inputs", []):
-                link_id = inp.get("link")
-                name = inp.get("name")
-
-                if link_id is None:
-                    # No link – use the widget value
-                    if name in widgets:
-                        inputs[inp["name"]] = widgets[name]
+                        inputs[inp["name"]] = [
+                            f"{current_node['id']}:{src_node!s}",
+                            external_link,
+                        ]
                 else:
-                    src_node, src_slot = link_map[link_id]
-                    inputs[inp["name"]] = [str(src_node), src_slot]
+                    inputs[inp["name"]] = [f"{current_node['id']}:{src_node!s}", src_slot]
+            else:
+                src_node, src_slot = link_map[link_id]
+                inputs[inp["name"]] = [str(src_node), src_slot]
 
-            node_entry: dict[str, Any] = {
-                "inputs": inputs,
-                "class_type": node_type,
-                "_meta": {"title": title},
-            }
-
-            nodes[node_id] = node_entry
+        node_entry: dict[str, Any] = {
+            "inputs": inputs,
+            "class_type": node_type,
+            "_meta": {"title": title},
+        }
+        nodes[node_key] = node_entry
 
     return nodes
 
