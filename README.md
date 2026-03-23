@@ -97,7 +97,6 @@ The plugin temporarily stores all generations made during the session. You can b
 ---
 ## Known Issues
 
-- Workflows containing sub‑graphs are not yet supported.  
 - If you want to use a pre‑configured workflow, start ComfyUI *before* opening Krita; otherwise the plug‑in won’t load it correctly.
 
 ---
