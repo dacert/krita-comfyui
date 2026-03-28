@@ -36,6 +36,12 @@ def api_nodes(workflow: dict, object_info: dict, subgraph_defs: dict, current_no
 
     nodes: dict[str, Any] = {}
 
+    # Extract inputNode.id from each subgraph definition for external link resolution
+    subgraph_input_node_ids = {
+        subgraph_id: subgraph.get("inputNode", {}).get("id", "-10")
+        for subgraph_id, subgraph in subgraph_defs.items()
+    }
+
     # Sort numeric IDs first to avoid int/str comparison issues
     def sort_key(item):
         try:
@@ -68,26 +74,33 @@ def api_nodes(workflow: dict, object_info: dict, subgraph_defs: dict, current_no
         elif not (title and display_name):
             title = node_type
 
+        # Handle subgraph nodes (recursive processing)
         if node_type in subgraph_defs:
             sub_workflow = subgraph_defs[node_type]
+            subgraph_input_node_id = subgraph_input_node_ids.get(node_type, "-10")
+
+            # Map each output link of this subgraph to external placeholder
             for i, out in enumerate(sub_workflow.get("outputs", [])):
                 link_id = out["linkIds"][0]
                 for link in sub_workflow.get("links", []):
                     if link_id == link["id"]:
                         origin_id, origin_slot = link["origin_id"], link["origin_slot"]
                         n_output = n.get("outputs", [])
+                        # If this output has a value, map its link
                         if len(n_output) > i:
                             for output_link in n.get("outputs", [])[i]["links"]:
                                 link_map[output_link] = [f"{node_id}:{origin_id}", origin_slot]
                         break
 
             sub_nodes = api_nodes(sub_workflow, object_info, subgraph_defs, n)
+            # Resolve subgraph input node placeholders
             for key in sub_nodes:
                 sub_node = sub_nodes[key]
                 for k in sub_node["inputs"]:
                     if isinstance(sub_node["inputs"][k], list):
                         src, link = sub_node["inputs"][k]
-                        if "-10" in src:
+                        if str(subgraph_input_node_id) in src:
+                            # Look up actual source in link_map
                             new_src = link_map[link][0]
                             new_slot = link_map[link][1]
                             sub_node["inputs"][k] = [str(new_src), new_slot]
@@ -101,6 +114,7 @@ def api_nodes(workflow: dict, object_info: dict, subgraph_defs: dict, current_no
         widget_inputs = [i for i in n.get("inputs", []) if i.get("widget")]
         for widget_input in widget_inputs:
             inp_info = inputs_info.get(widget_input["name"], [])
+            # Assign widget value by index
             if widget_index < len(widget_vals):
                 widgets[widget_input["name"]] = widget_vals[widget_index]
                 widget_index += 1
@@ -110,7 +124,11 @@ def api_nodes(workflow: dict, object_info: dict, subgraph_defs: dict, current_no
                 widget_index += 1
 
         inputs: dict[str, Any] = {}
-        node_key = f"{current_node['id']}:{node_id}" if current_node and current_node["type"] in subgraph_defs else node_id
+        node_key = (
+            f"{current_node['id']}:{node_id}"
+            if current_node and current_node["type"] in subgraph_defs
+            else node_id
+        )
 
         for inp in n.get("inputs", []):
             link_id = inp.get("link")
@@ -121,11 +139,15 @@ def api_nodes(workflow: dict, object_info: dict, subgraph_defs: dict, current_no
                 if name in widgets:
                     inputs[inp["name"]] = widgets[name]
             elif current_node and current_node["type"] in subgraph_defs:
+                # Inside a subgraph expansion - resolve via link_map
                 src_node, src_slot = link_map[link_id]
-                if src_node == -10:
+                # Use inputNode.id from the parent subgraph definition
+                if src_node == subgraph_input_node_ids.get(current_node["type"], "-10"):
+                    # External link from parent workflow
                     external_link = current_node["inputs"][src_slot]["link"]
                     input_name = current_node["inputs"][src_slot]["name"]
                     if not external_link:
+                        # Fallback to widgets
                         if input_name in current_node_widgets:
                             inputs[inp["name"]] = current_node_widgets[input_name]
                         elif name in widgets:
@@ -138,6 +160,7 @@ def api_nodes(workflow: dict, object_info: dict, subgraph_defs: dict, current_no
                 else:
                     inputs[inp["name"]] = [f"{current_node['id']}:{src_node!s}", src_slot]
             else:
+                # Top-level workflow - standard resolution
                 src_node, src_slot = link_map[link_id]
                 inputs[inp["name"]] = [str(src_node), src_slot]
 
