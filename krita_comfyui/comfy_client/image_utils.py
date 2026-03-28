@@ -8,7 +8,7 @@ def reduce_alpha_by_selection(qimg: QImage, w: int, h: int, sel_bytes: QByteArra
     if ptr is None:
         return qimg
 
-    ptr.setsize(h * w * 4)  # 4 bytes píxel (ARGB)
+    ptr.setsize(h * w * 4)  # 4 bytes per pixel (ARGB)
     buf = bytearray(ptr.asarray())
 
     total_pixels = w * h
