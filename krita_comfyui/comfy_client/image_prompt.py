@@ -6,13 +6,10 @@ from PyQt5.QtCore import QByteArray, QRect
 @dataclass
 class ImagePrompt:
     """
-    Represents a set of image filenames that all share the same numeric ID.
-
-    The `image_id` is chosen randomly on *instance creation* and is used to
-    construct the other file names automatically.  All fields are immutable
+    Represents a set of image filenames that all share the same ID.
     """
 
-    image_id: int = field(default_factory=lambda: "krita")
+    image_id: str = field(default_factory=lambda: "krita")
     image: str = field(init=False)
     mask: str = field(init=False)
     paint: str = field(init=False)
