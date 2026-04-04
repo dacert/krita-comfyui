@@ -10,7 +10,7 @@ from typing import Any
 
 from .config_logging import getLogger
 
-DEFAULT_URL = "http://localhost:8188"
+DEFAULT_URL = "http://localhost:8000"
 
 
 def _filter_input_dict(raw: dict[str, Any], cls):

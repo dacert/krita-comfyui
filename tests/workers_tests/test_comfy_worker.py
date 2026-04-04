@@ -61,7 +61,7 @@ def mock_cfg() -> Config:
     # Provide required fields for Config
     return Config(
         logger=False,
-        comfyui_url="http://localhost:8188",
+        comfyui_url="http://localhost:8000",
         workflows=[wf],
     )
 
