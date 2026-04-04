@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Script to generate the release package for the Krita ComfyUI plugin.
 """
