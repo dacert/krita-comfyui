@@ -13,7 +13,7 @@ class ComfyHttpClient:
 
     TIMEOUT_SECONDS = 5
 
-    def __init__(self, server: str = "http://127.0.0.1:8188"):
+    def __init__(self, server: str = "http://127.0.0.1:8000"):
         self.server_address = server.rstrip("/")
         self._object_info_cache: dict | None = None
 

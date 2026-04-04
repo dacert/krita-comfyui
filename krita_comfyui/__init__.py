@@ -1,6 +1,6 @@
 """Krita ComfyUI is a lightweight plugin for Krita 5.2+ that lets you run ComfyUI workflows directly from Krita."""
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 
 from .krita import DockWidgetFactory, DockWidgetFactoryBase, Krita
 from .krita_comfyui import KritaComfyUi

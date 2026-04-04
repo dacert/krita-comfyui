@@ -33,7 +33,7 @@ def _mock_response(content: bytes | str, status=200):
 
 @pytest.fixture
 def client():
-    return ComfyHttpClient(server="http://127.0.0.1:8188")
+    return ComfyHttpClient(server="http://127.0.0.1:8000")
 
 
 # ---------- Helper for patching urllib.request.urlopen ----------

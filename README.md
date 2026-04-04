@@ -44,7 +44,7 @@
 1. **Show the ComfyUI Docker**: `Settings ▸ Dockers ▸ Krita ComfyUI`.
 
 2. In the Docker window, click the settings icon and fill in the tabs:
-   - **General** – Enter the server URL (e.g., `http://localhost:8188/`).
+   - **General** – Enter the server URL (e.g., `http://localhost:8000/`).
    - **Workflow** – Select a workflow and adjust its inputs.
 
    ![General Settings](media/comfyui-plugin-settings[General].png)
@@ -107,7 +107,7 @@ The plugin temporarily stores all generations made during the session. You can b
 | Problem | Possible Cause | Solution |
 |---------|----------------|----------|
 | Server URL not shown | ComfyUI server isn’t running or URL is incorrect | Start the server and verify the URL. |
-| Workflows don’t list | Connection failed to the server | Check that the firewall allows connections to `localhost:8188` (or the configured port). |
+| Workflows don’t list | Connection failed to the server | Check that the firewall allows connections to `localhost:8000` (or the configured port). |
 | Plugin fails to generate images | Insufficient GPU or outdated drivers | Update your graphics card drivers and check available VRAM. |
 
 ## Contribution and Support

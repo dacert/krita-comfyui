@@ -75,7 +75,7 @@ def _extract_tarball(tarball_path: Path, dest_dir: Path) -> Path:
     return dest_dir / internal_dir
 
 
-def create_release(zip_name: str, version: str) -> Path:
+def create_release(zip_name: str) -> Path:
     """Create the release package for the Krita ComfyUI plugin."""
     project_root = Path(__file__).resolve().parent.parent
     krita_comfyui_dir = project_root / "krita_comfyui"
@@ -119,7 +119,7 @@ def main():
     zip_name = f"krita_comfyui-{version}.zip"
 
     try:
-        result = create_release(zip_name, version)
+        result = create_release(zip_name)
         print(f"\nSuccess! Package created at: {result}")
     except Exception as e:
         print(f"\nError: {e}")
