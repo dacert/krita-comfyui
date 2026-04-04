@@ -25,7 +25,7 @@ from .workflow_form_builder import WorkflowFormBuilder
 
 
 class SettingsDialog(QDialog):
-    CONFIG_FILE = "config.json"
+    CONFIG_FILE = "krita_comfyui.config"
     WORKFLOWS_DIR = Path("workflows")  # relative to plugin_dir
     OPTIONAL_PROPERTIES = WorkflowFormBuilder.OPTIONAL_PROPERTIES
 
@@ -277,7 +277,7 @@ class SettingsDialog(QDialog):
         self.cfg.logger = self.debug_level.isChecked()
 
     def _load_config(self):
-        """Load config.json with the new schema."""
+        """Load krita_comfyui.config with the new schema."""
         cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
         self.cfg = Config.load_or_create(cfg_path)
 

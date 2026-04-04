@@ -6,6 +6,7 @@
 # Development
 ruff
 PyQt5
+build
 
 # Testing
 pytest
