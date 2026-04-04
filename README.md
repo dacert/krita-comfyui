@@ -53,6 +53,8 @@
 
 To have the plugin list available workflows, the ComfyUI server must be online and contain them.
 
+> ⚠️ **Critical Requirement:** Workflows **must** include a `SaveImageWebsocket` output node. This custom node is required for the plugin to receive generated images from ComfyUI. Without it, execution will fail with the error: *"No 'SaveImageWebsocket' output node found."*
+
 1. In the **Workflow** tab, select a workflow (e.g., *Qwen Image Edit.json*).
 2. Adjust parameters: prompt, seed, image loading nodes, etc.
 3. Use **Add/Update** to save the configuration or **Remove** to delete it.
@@ -109,6 +111,7 @@ The plugin temporarily stores all generations made during the session. You can b
 | Server URL not shown | ComfyUI server isn’t running or URL is incorrect | Start the server and verify the URL. |
 | Workflows don’t list | Connection failed to the server | Check that the firewall allows connections to `localhost:8000` (or the configured port). |
 | Plugin fails to generate images | Insufficient GPU or outdated drivers | Update your graphics card drivers and check available VRAM. |
+| SaveImageWebsocket node not found | Workflow missing required output node | Add a `SaveImageWebsocket` node to your ComfyUI workflow and reconnect it to the output image pipe. |
 
 ## Contribution and Support
 
