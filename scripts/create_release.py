@@ -9,28 +9,45 @@ import tempfile
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
-TEMP_EXTENSIONS = frozenset((".pyc", ".pyo", ".pyd", ".so", ".dist-info", ".egg-info", ".config"))
+TEMP_EXTENSIONS = frozenset((
+    ".pyc",
+    ".pyo",
+    ".pyd",
+    ".so",
+    ".dist-info",
+    ".egg-info",
+    ".config",
+    ".log",
+))
 
 
 def _should_exclude(path: Path) -> bool:
-    """Check if a file should be excluded as temporary."""
-    return path.suffix in TEMP_EXTENSIONS or "__pycache__" in path.parts
+    """Check if a file or directory should be excluded."""
+    return "__pycache__" in path.parts or path.suffix in TEMP_EXTENSIONS
 
 
-def _add_directory_to_zip(zip_file: ZipFile, source_dir: Path, archive_prefix: Path) -> None:
+def _add_directory_to_zip(
+    zip_file: ZipFile, source_dir: Path, archive_prefix: Path, exclude_dir: str = ""
+) -> None:
     """Add filtered directory contents to ZIP."""
-    for root, _dirs, files in os.walk(source_dir):
+    for root, dirs, files in os.walk(source_dir):
         file_path = Path(root)
-        # Add directory entry
+
+        # Prune excluded directories
+        if exclude_dir and file_path.name == exclude_dir:
+            dirs[:] = []
+            continue
+
         rel_path = file_path.relative_to(source_dir)
-        if rel_path != Path("."):
-            arcname = archive_prefix / rel_path
+        if rel_path != Path(".") and "__pycache__" not in rel_path.parts:
+            arcname = (archive_prefix / rel_path).as_posix()
             zip_file.writestr(f"{arcname}/", "")
+
         for file in files:
             full_path = file_path / file
             if _should_exclude(full_path):
                 continue
-            arcname = archive_prefix / full_path.relative_to(source_dir)
+            arcname = (archive_prefix / rel_path / file).as_posix()
             zip_file.write(full_path, arcname)
 
 
@@ -80,28 +97,12 @@ def create_release(zip_name: str, version: str) -> Path:
         temp_path = Path(temp_dir)
 
         with ZipFile(output_path, "w", compression=ZIP_DEFLATED, compresslevel=9) as zip_file:
-            # Add root directory entry
             zip_file.writestr("krita_comfyui/", "")
-
             zip_file.write(license_file, "krita_comfyui/LICENSE")
             zip_file.write(desktop_file, "krita_comfyui.desktop")
-
-            for root, dirs, files in os.walk(krita_comfyui_dir, topdown=True):
-                if Path(root).name == "websockets":
-                    dirs[:] = []
-                    continue
-                file_path = Path(root)
-                # Add directory entry
-                rel_path = file_path.relative_to(krita_comfyui_dir)
-                if rel_path != Path("."):
-                    arcname = f"krita_comfyui/{rel_path.as_posix()}/"
-                    zip_file.writestr(arcname, "")
-                for file in files:
-                    full_path = file_path / file
-                    if _should_exclude(full_path):
-                        continue
-                    arcname = Path("krita_comfyui") / full_path.relative_to(krita_comfyui_dir)
-                    zip_file.write(full_path, arcname)
+            _add_directory_to_zip(
+                zip_file, krita_comfyui_dir, Path("krita_comfyui"), exclude_dir="websockets"
+            )
 
             tarball_path = find_websockets(krita_comfyui_dir)
             extracted = _extract_tarball(tarball_path, temp_path)
