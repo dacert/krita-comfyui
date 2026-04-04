@@ -31,7 +31,7 @@ DOCKER_TITLE = "Krita ComfyUi"
 
 
 class KritaComfyUi(DockWidget):
-    CONFIG_FILE = "config.json"
+    CONFIG_FILE = "krita_comfyui.config"
 
     def __init__(self):
         super().__init__()
@@ -133,7 +133,7 @@ class KritaComfyUi(DockWidget):
         return Config.load_or_create(cfg_path)
 
     def populate_workflow_combo(self):
-        """Fill the combo with workflows stored in config.json
+        """Fill the combo with workflows stored in krita_comfyui.config
         that actually exist on the Comfy server."""
         self.workflow_combo.clear()
 

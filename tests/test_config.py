@@ -26,7 +26,7 @@ def sample_cfg_dict():
 @pytest.fixture
 def sample_cfg_file(tmp_path, sample_cfg_dict):
     """Create a temporary config file with the sample dictionary."""
-    p = tmp_path / "config.json"
+    p = tmp_path / "krita_comfyui.config"
     p.write_text(json.dumps(sample_cfg_dict), encoding="utf-8")
     return p
 
@@ -62,7 +62,7 @@ def test_save_and_reload(tmp_path):
         ],
     )
 
-    save_path = tmp_path / "saved_config.json"
+    save_path = tmp_path / "saved_krita_comfyui.config"
     cfg_original.save(save_path)
 
     # Ensure file was written
@@ -120,7 +120,7 @@ def test_missing_optional_fields_in_workflow(tmp_path):
         ],
     }
 
-    p = tmp_path / "partial_config.json"
+    p = tmp_path / "partial_krita_comfyui.config"
     p.write_text(json.dumps(cfg_dict), encoding="utf-8")
 
     cfg = Config.load(p)

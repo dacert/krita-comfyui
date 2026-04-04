@@ -1,0 +1,19 @@
+{
+  "languages": {
+    "Python": {
+      "format_on_save": "on",
+      "language_servers": [
+        "ruff"
+      ],
+    },
+  },
+  "lsp": {
+    "ruff": {
+      "initialization_options": {
+        "settings": {
+          "configuration": "pyproject.toml",
+        },
+      },
+    },
+  },
+}
