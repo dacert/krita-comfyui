@@ -13,8 +13,9 @@ class ComfyHttpClient:
 
     TIMEOUT_SECONDS = 5
 
-    def __init__(self, server: str = "http://127.0.0.1:8000"):
+    def __init__(self, server: str = "http://127.0.0.1:8000", api_key: str = ""):
         self.server_address = server.rstrip("/")
+        self.api_key = api_key
         self._object_info_cache: dict | None = None
 
     # --------------------------------------------------------------------- #
@@ -75,11 +76,14 @@ class ComfyHttpClient:
             fields=fields, files=[("image", file_name, file_bytes)]
         )
 
-        url = urljoin(f"{self.server_address}/", f"upload/{path}")
+        url = urljoin(f"{self.server_address}/", f"api/upload/{path}")
+        headers = {"Content-Type": content_type}
+        if self.api_key:
+            headers["X-API-Key"] = self.api_key
         req = urllib.request.Request(
             url,
             data=body,
-            headers={"Content-Type": content_type},
+            headers=headers,
         )
         with urllib.request.urlopen(req) as resp:
             resp_data = json.loads(resp.read().decode())
@@ -118,7 +122,7 @@ class ComfyHttpClient:
 
     def queue_prompt(self, prompt: dict, client_id: str) -> dict:
         payload = {"prompt": prompt, "client_id": client_id}
-        url = f"{self.server_address}/prompt"
+        url = f"{self.server_address}/api/prompt"
         return self._post_json(url, payload)
 
     def get_settings(self) -> dict:
@@ -131,12 +135,17 @@ class ComfyHttpClient:
     # --------------------------------------------------------------------- #
 
     def _fetch_json(self, url: str, timeout: float = TIMEOUT_SECONDS) -> dict:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
+        req = urllib.request.Request(url)
+        if self.api_key:
+            req.add_header("X-API-Key", self.api_key)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
 
     def _post_json(self, url: str, payload: dict) -> dict:
         data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(url, data=data)
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        if self.api_key:
+            req.add_header("X-API-Key", self.api_key)
         with urllib.request.urlopen(req) as resp:
             return json.loads(resp.read())
 

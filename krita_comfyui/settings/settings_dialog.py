@@ -80,6 +80,11 @@ class SettingsDialog(QDialog):
         tg_layout.addWidget(QLabel("ComfyUI URL:"))
         tg_layout.addWidget(self.comfyui_url_edit)
 
+        self.api_key_edit = QLineEdit()
+        self.api_key_edit.setEchoMode(QLineEdit.Password)
+        tg_layout.addWidget(QLabel("API Key (optional, for ComfyUI Cloud):"))
+        tg_layout.addWidget(self.api_key_edit)
+
         tg_layout.addStretch(1)
         self.debug_level = QCheckBox("Debug level logger")
         tg_layout.addWidget(self.debug_level)
@@ -276,6 +281,9 @@ class SettingsDialog(QDialog):
     def _on_debug_level_change(self):
         self.cfg.logger = self.debug_level.isChecked()
 
+    def _on_api_key_changed(self):
+        self.cfg.api_key = self.api_key_edit.text().strip()
+
     def _load_config(self):
         """Load krita_comfyui.config with the new schema."""
         cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
@@ -285,6 +293,8 @@ class SettingsDialog(QDialog):
         self.debug_level.stateChanged.connect(self._on_debug_level_change)
         self.comfyui_url_edit.setText(self.cfg.comfyui_url)
         self.comfyui_url_edit.textChanged.connect(self._on_comfyui_url_changed)
+        self.api_key_edit.setText(self.cfg.api_key)
+        self.api_key_edit.textChanged.connect(self._on_api_key_changed)
 
     def _populate_wf_form(self):
         """Build the form with combo boxes using the API instead of files."""
@@ -369,7 +379,7 @@ class SettingsDialog(QDialog):
 
     def _get_http_client(self, server_url: str):
         if self.http_client is None or self.http_client.server_address != server_url:
-            self.http_client = ComfyHttpClient(server_url)
+            self.http_client = ComfyHttpClient(server_url, self.cfg.api_key)
         return self.http_client
 
     def _get_workflows_list(self, server_url: str) -> dict:

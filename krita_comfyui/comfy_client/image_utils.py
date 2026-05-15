@@ -46,3 +46,22 @@ def qimage_to_bytes(qimg: QImage, fmt: str = "PNG") -> bytes:
     qimg.save(buffer, fmt)
     byte_array: bytes = bytes(buffer.data())
     return byte_array
+
+
+def fix_image(data: bytes) -> bytes:
+    # Find PNG signature
+    png_signature = b"\x89PNG\r\n\x1a\n"
+    png_offset = data.find(png_signature)
+
+    if png_offset <= 0:
+        return data
+
+    # Extract PNG data
+    return data[png_offset:]
+
+
+def create_transparent_argb32_image(width: int, height: int) -> bytes:
+    # Create ARGB32 image initialized to transparent (alpha = 0)
+    image = QImage(width, height, QImage.Format.Format_ARGB32)
+    image.fill(0)  # Fill with transparent black (alpha = 0)
+    return qimage_to_bytes(image)

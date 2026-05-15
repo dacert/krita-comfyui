@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass, field
 
 from PyQt5.QtCore import QByteArray, QRect
@@ -9,7 +10,7 @@ class ImagePrompt:
     Represents a set of image filenames that all share the same ID.
     """
 
-    image_id: str = field(default_factory=lambda: "krita")
+    image_id: str = field(default_factory=lambda: f"krita-{random.randint(1, 11768320141)}")
     image: str = field(init=False)
     mask: str = field(init=False)
     paint: str = field(init=False)
@@ -38,10 +39,3 @@ class ImagePrompt:
 
     def has_selection_data(self) -> bool:
         return self.sel_bytes is not None
-
-    def get_input_name(self) -> str | None:
-        if not self.has_image_data():
-            return None
-        if self.has_selection_data():
-            return f"clipspace/{self.painted_mask} [input]"
-        return self.image

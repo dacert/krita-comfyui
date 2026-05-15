@@ -44,12 +44,21 @@ class WorkflowConfig:
     workflow_name: str
     inputs: dict[str, WorkflowInput] = field(default_factory=dict)
 
+    def has_image_loader(self) -> bool:
+        inputs_map = self.inputs
+        image_input = inputs_map.get("image_loader")
+        return bool(image_input and image_input.node_id)
+
 
 @dataclass
 class Config:
     logger: bool
     comfyui_url: str
+    api_key: str = ""
     workflows: list[WorkflowConfig] = field(default_factory=list)
+
+    def get_workflow(self, workflow_name: str) -> WorkflowConfig | None:
+        return next((w for w in self.workflows if w.workflow_name == workflow_name), None)
 
     @classmethod
     def load(cls, path: Path) -> "Config":
@@ -69,6 +78,7 @@ class Config:
         return cls(
             logger=data.get("logger", False),
             comfyui_url=data.get("comfyui_url", DEFAULT_URL),
+            api_key=data.get("api_key", ""),
             workflows=workflows,
         )
 
@@ -78,6 +88,7 @@ class Config:
         serialised = {
             "logger": self.logger,
             "comfyui_url": self.comfyui_url,
+            "api_key": self.api_key,
             "workflows": [
                 {
                     "workflow_name": wf.workflow_name,
@@ -115,6 +126,7 @@ class Config:
         default_cfg = cls(
             logger=False,
             comfyui_url=DEFAULT_URL,
+            api_key="",
             workflows=[],
         )
         try:
