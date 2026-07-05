@@ -80,6 +80,7 @@ def test_load_or_create_missing_file(tmp_path):
     assert cfg.logger is False
     assert cfg.comfyui_url == DEFAULT_URL
     assert cfg.workflows == []
+    assert cfg.timeout_minutes == 5
 
     # File should now exist with the default content
     assert missing_path.exists()
@@ -87,6 +88,7 @@ def test_load_or_create_missing_file(tmp_path):
     assert data["logger"] is False
     assert data["comfyui_url"] == DEFAULT_URL
     assert data["workflows"] == []
+    assert data["timeout_minutes"] == 5
 
 
 def test_load_or_create_corrupted_json(tmp_path, sample_cfg_file):
@@ -230,6 +232,60 @@ def test_workflow_input_extra_keys(tmp_path):
     inp = wf.inputs["field1"]
     assert inp.node_id == "99"
     assert inp.property == "text"
+
+
+def test_timeout_default_when_missing(tmp_path):
+    """When timeout_minutes is missing, default to 5 minutes."""
+    cfg_dict = {"logger": False, "comfyui_url": "http://example.com", "workflows": []}
+    p = tmp_path / "no_timeout.json"
+    p.write_text(json.dumps(cfg_dict), encoding="utf-8")
+
+    cfg = Config.load(p)
+    assert cfg.timeout_minutes == 5
+
+
+@pytest.mark.parametrize(
+    ("raw_value", "expected"),
+    [
+        (0, 1),  # below min -> clamped to 1
+        (1, 1),  # boundary
+        (30, 30),  # mid-range
+        (60, 60),  # boundary
+        (61, 60),  # above max -> clamped to 60
+        (999, 60),  # far above max -> clamped to 60
+    ],
+)
+def test_timeout_clamped_to_range(tmp_path, raw_value, expected):
+    """Values outside [1, 60] are clamped on load."""
+    cfg_dict = {
+        "logger": False,
+        "comfyui_url": "http://example.com",
+        "workflows": [],
+        "timeout_minutes": raw_value,
+    }
+    p = tmp_path / "clamped_timeout.json"
+    p.write_text(json.dumps(cfg_dict), encoding="utf-8")
+
+    cfg = Config.load(p)
+    assert cfg.timeout_minutes == expected
+
+
+def test_timeout_persistence_roundtrip(tmp_path):
+    """timeout_minutes is saved to disk and reloaded with the same value."""
+    cfg = Config(
+        logger=False,
+        comfyui_url="http://example.com",
+        workflows=[],
+        timeout_minutes=15,
+    )
+    out_path = tmp_path / "persist_timeout.json"
+    cfg.save(out_path)
+
+    data = json.loads(out_path.read_text(encoding="utf-8"))
+    assert data["timeout_minutes"] == 15
+
+    loaded = Config.load(out_path)
+    assert loaded.timeout_minutes == 15
 
 
 # End of test suite

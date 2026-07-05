@@ -81,7 +81,7 @@ class ComfyWorker(QRunnable):
                 images = await c.run_workflow(
                     workflow=prompt,
                     output_node=node_id,
-                    timeout=60 * 60,
+                    timeout=self.cfg.timeout_minutes * 60,
                     progress_callback=lambda p: self.signals.progress.emit(p),
                 )
 

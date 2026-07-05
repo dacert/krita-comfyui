@@ -56,6 +56,7 @@ class Config:
     comfyui_url: str
     api_key: str = ""
     workflows: list[WorkflowConfig] = field(default_factory=list)
+    timeout_minutes: int = 5
 
     def get_workflow(self, workflow_name: str) -> WorkflowConfig | None:
         return next((w for w in self.workflows if w.workflow_name == workflow_name), None)
@@ -75,11 +76,14 @@ class Config:
             )
             for wf in data.get("workflows", [])
         ]
+        timeout_minutes = data.get("timeout_minutes", 5)
+        timeout_minutes = max(1, min(60, int(timeout_minutes)))
         return cls(
             logger=data.get("logger", False),
             comfyui_url=data.get("comfyui_url", DEFAULT_URL),
             api_key=data.get("api_key", ""),
             workflows=workflows,
+            timeout_minutes=timeout_minutes,
         )
 
     def save(self, path: Path):
@@ -89,6 +93,7 @@ class Config:
             "logger": self.logger,
             "comfyui_url": self.comfyui_url,
             "api_key": self.api_key,
+            "timeout_minutes": self.timeout_minutes,
             "workflows": [
                 {
                     "workflow_name": wf.workflow_name,

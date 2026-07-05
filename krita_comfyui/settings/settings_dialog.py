@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -84,6 +85,15 @@ class SettingsDialog(QDialog):
         self.api_key_edit.setEchoMode(QLineEdit.Password)
         tg_layout.addWidget(QLabel("API Key (optional, for ComfyUI Cloud):"))
         tg_layout.addWidget(self.api_key_edit)
+
+        timeout_row = QHBoxLayout()
+        self.timeout_spin = QSpinBox()
+        self.timeout_spin.setRange(1, 60)
+        self.timeout_spin.setSuffix(" min")
+        timeout_row.addWidget(self.timeout_spin)
+        timeout_row.addStretch(1)
+        tg_layout.addWidget(QLabel("Generation timeout (minutes):"))
+        tg_layout.addLayout(timeout_row)
 
         tg_layout.addStretch(1)
         self.debug_level = QCheckBox("Debug level logger")
@@ -284,6 +294,9 @@ class SettingsDialog(QDialog):
     def _on_api_key_changed(self):
         self.cfg.api_key = self.api_key_edit.text().strip()
 
+    def _on_timeout_changed(self):
+        self.cfg.timeout_minutes = self.timeout_spin.value()
+
     def _load_config(self):
         """Load krita_comfyui.config with the new schema."""
         cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
@@ -295,6 +308,8 @@ class SettingsDialog(QDialog):
         self.comfyui_url_edit.textChanged.connect(self._on_comfyui_url_changed)
         self.api_key_edit.setText(self.cfg.api_key)
         self.api_key_edit.textChanged.connect(self._on_api_key_changed)
+        self.timeout_spin.setValue(self.cfg.timeout_minutes)
+        self.timeout_spin.valueChanged.connect(self._on_timeout_changed)
 
     def _populate_wf_form(self):
         """Build the form with combo boxes using the API instead of files."""
