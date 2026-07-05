@@ -30,10 +30,18 @@ class ComfyClient:
     Asynchronous client to interact with the ComfyUI server (WS).
     """
 
-    def __init__(self, logger: Logger, server: str, api_key: str = ""):
+    def __init__(
+        self,
+        logger: Logger,
+        server: str,
+        api_key: str = "",
+        *,
+        clipspace_enabled: bool = True,
+    ):
         self.logger = logger
         self.server_address = self.get_ws_host(server)
         self.api_key = api_key
+        self.clipspace_enabled = clipspace_enabled
         self.http_client = ComfyHttpClient(server, api_key)
         self.client_id = str(uuid.uuid4())
         self.ws: ClientConnection
@@ -189,47 +197,52 @@ class ComfyClient:
         )
         mask_bytes = qimage_to_bytes(mask_qimg)
 
-        _ = self.http_client.upload_file(
-            "mask",
-            image_prompt.mask,
-            mask_bytes,
-            subfolder="clipspace",
-            ref=uploaded["name"],
-            ref_subfolder=uploaded["subfolder"],
-            overwrite=True,
-        )
+        painted_uploaded = None
+        if self.clipspace_enabled:
+            _ = self.http_client.upload_file(
+                "mask",
+                image_prompt.mask,
+                mask_bytes,
+                subfolder="clipspace",
+                ref=uploaded["name"],
+                ref_subfolder=uploaded["subfolder"],
+                overwrite=True,
+            )
 
-        paint_bytes = create_transparent_argb32_image(image_prompt.width, image_prompt.height)
-        _ = self.http_client.upload_file(
-            "image",
-            image_prompt.paint,
-            paint_bytes,
-            subfolder="clipspace",
-            ref=uploaded["name"],
-            ref_subfolder=uploaded["subfolder"],
-            overwrite=True,
-        )
+            paint_bytes = create_transparent_argb32_image(image_prompt.width, image_prompt.height)
+            _ = self.http_client.upload_file(
+                "image",
+                image_prompt.paint,
+                paint_bytes,
+                subfolder="clipspace",
+                ref=uploaded["name"],
+                ref_subfolder=uploaded["subfolder"],
+                overwrite=True,
+            )
 
-        painted_uploaded = self.http_client.upload_file(
-            "image",
-            image_prompt.painted,
-            image_bytes,
-            subfolder="clipspace",
-            ref=uploaded["name"],
-            ref_subfolder=uploaded["subfolder"],
-            overwrite=True,
-        )
+            painted_uploaded = self.http_client.upload_file(
+                "image",
+                image_prompt.painted,
+                image_bytes,
+                subfolder="clipspace",
+                ref=uploaded["name"],
+                ref_subfolder=uploaded["subfolder"],
+                overwrite=True,
+            )
 
-        if not painted_uploaded:
-            return input_name
+            if not painted_uploaded:
+                return input_name
+
+        ref_name = painted_uploaded["name"] if painted_uploaded else uploaded["name"]
+        ref_subfolder = painted_uploaded["subfolder"] if painted_uploaded else uploaded["subfolder"]
 
         painted_masked_uploaded = self.http_client.upload_file(
             "mask",
             image_prompt.painted_mask,
             mask_bytes,
             subfolder="clipspace",
-            ref=painted_uploaded["name"],
-            ref_subfolder=painted_uploaded["subfolder"],
+            ref=ref_name,
+            ref_subfolder=ref_subfolder,
             overwrite=True,
         )
 

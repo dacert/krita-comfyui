@@ -57,6 +57,7 @@ class Config:
     api_key: str = ""
     workflows: list[WorkflowConfig] = field(default_factory=list)
     timeout_minutes: int = 5
+    clipspace_enabled: bool = True
 
     def get_workflow(self, workflow_name: str) -> WorkflowConfig | None:
         return next((w for w in self.workflows if w.workflow_name == workflow_name), None)
@@ -84,6 +85,7 @@ class Config:
             api_key=data.get("api_key", ""),
             workflows=workflows,
             timeout_minutes=timeout_minutes,
+            clipspace_enabled=data.get("clipspace_enabled", True),
         )
 
     def save(self, path: Path):
@@ -94,6 +96,7 @@ class Config:
             "comfyui_url": self.comfyui_url,
             "api_key": self.api_key,
             "timeout_minutes": self.timeout_minutes,
+            "clipspace_enabled": self.clipspace_enabled,
             "workflows": [
                 {
                     "workflow_name": wf.workflow_name,

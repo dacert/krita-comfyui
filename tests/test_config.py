@@ -81,6 +81,7 @@ def test_load_or_create_missing_file(tmp_path):
     assert cfg.comfyui_url == DEFAULT_URL
     assert cfg.workflows == []
     assert cfg.timeout_minutes == 5
+    assert cfg.clipspace_enabled is True
 
     # File should now exist with the default content
     assert missing_path.exists()
@@ -89,6 +90,7 @@ def test_load_or_create_missing_file(tmp_path):
     assert data["comfyui_url"] == DEFAULT_URL
     assert data["workflows"] == []
     assert data["timeout_minutes"] == 5
+    assert data["clipspace_enabled"] is True
 
 
 def test_load_or_create_corrupted_json(tmp_path, sample_cfg_file):
@@ -286,6 +288,50 @@ def test_timeout_persistence_roundtrip(tmp_path):
 
     loaded = Config.load(out_path)
     assert loaded.timeout_minutes == 15
+
+
+def test_clipspace_default_when_missing(tmp_path):
+    """When clipspace_enabled is missing, default to True."""
+    cfg_dict = {"logger": False, "comfyui_url": "http://example.com", "workflows": []}
+    p = tmp_path / "no_clipspace.json"
+    p.write_text(json.dumps(cfg_dict), encoding="utf-8")
+
+    cfg = Config.load(p)
+    assert cfg.clipspace_enabled is True
+
+
+@pytest.mark.parametrize("raw_value", [True, False])
+def test_clipspace_explicit_values(tmp_path, raw_value):
+    """Both True and False are preserved when explicitly set in JSON."""
+    cfg_dict = {
+        "logger": False,
+        "comfyui_url": "http://example.com",
+        "workflows": [],
+        "clipspace_enabled": raw_value,
+    }
+    p = tmp_path / "clipspace_explicit.json"
+    p.write_text(json.dumps(cfg_dict), encoding="utf-8")
+
+    cfg = Config.load(p)
+    assert cfg.clipspace_enabled is raw_value
+
+
+def test_clipspace_persistence_roundtrip(tmp_path):
+    """clipspace_enabled is saved to disk and reloaded with the same value."""
+    cfg = Config(
+        logger=False,
+        comfyui_url="http://example.com",
+        workflows=[],
+        clipspace_enabled=False,
+    )
+    out_path = tmp_path / "persist_clipspace.json"
+    cfg.save(out_path)
+
+    data = json.loads(out_path.read_text(encoding="utf-8"))
+    assert data["clipspace_enabled"] is False
+
+    loaded = Config.load(out_path)
+    assert loaded.clipspace_enabled is False
 
 
 # End of test suite

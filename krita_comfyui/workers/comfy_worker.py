@@ -48,7 +48,12 @@ class ComfyWorker(QRunnable):
             asyncio.set_event_loop(new_loop)
 
             http_client = ComfyHttpClient(self.server_url, self.cfg.api_key)
-            client = ComfyClient(self.logger, self.server_url, self.cfg.api_key)
+            client = ComfyClient(
+                self.logger,
+                self.server_url,
+                self.cfg.api_key,
+                clipspace_enabled=self.cfg.clipspace_enabled,
+            )
 
             images: dict[str, list[bytes]] = {}
             async with client as c:
