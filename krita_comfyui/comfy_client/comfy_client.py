@@ -220,6 +220,9 @@ class ComfyClient:
             overwrite=True,
         )
 
+        if not painted_uploaded:
+            return input_name
+
         painted_masked_uploaded = self.http_client.upload_file(
             "mask",
             image_prompt.painted_mask,
