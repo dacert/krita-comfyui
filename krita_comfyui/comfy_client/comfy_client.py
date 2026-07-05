@@ -181,7 +181,7 @@ class ComfyClient:
             else f"{uploaded['name']} [input]"
         )
 
-        if not image_prompt.has_selection_data():
+        if not image_prompt.sel_bytes is not None:
             return input_name
 
         mask_qimg = reduce_alpha_by_selection(

@@ -3,7 +3,7 @@ import urllib.request
 import uuid
 from urllib.parse import quote, urlencode, urljoin
 
-from .workflow_utils import to_api_format
+from ..litegraph_py.src.litegraph_py import graph_to_prompt, load_workflow_json
 
 
 class ComfyHttpClient:
@@ -118,7 +118,10 @@ class ComfyHttpClient:
     def get_workflow_api(self, name: str) -> dict:
         raw = self.get_workflow(name)
         object_info = self.get_object_info()
-        return to_api_format(raw, object_info)
+
+        graph = load_workflow_json(raw, object_info=object_info)
+        _, api_prompt = graph_to_prompt(graph, sort_nodes=True)
+        return api_prompt
 
     def queue_prompt(self, prompt: dict, client_id: str) -> dict:
         payload = {"prompt": prompt, "client_id": client_id}

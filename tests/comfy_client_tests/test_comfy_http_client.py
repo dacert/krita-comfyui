@@ -149,29 +149,44 @@ def test_object_info_caching(monkeypatch, mock_urlopen, client):
 
 # ---------- Tests for API conversion ----------
 def test_get_workflow_api(monkeypatch, mock_urlopen, client):
-    """Ensure to_api_format is called with correct arguments."""
+    """Ensure the litegraph_py helpers are invoked with the expected arguments."""
     dummy_raw = {"foo": "bar"}
     dummy_obj_info = {"nodes": []}
+    dummy_graph = {"graph": "value"}
 
     # Patch get_workflow and get_object_info on the client instance
     monkeypatch.setattr(client, "get_workflow", lambda n: dummy_raw)
     monkeypatch.setattr(client, "get_object_info", lambda: dummy_obj_info)
 
-    # Replace the real to_api_format function with a spy.
+    # Replace the litegraph helpers with spies.
     import krita_comfyui.comfy_client.comfy_http_client as chc
 
-    spy = types.SimpleNamespace()
+    loader_calls = types.SimpleNamespace(args=None, kwargs=None)
+    converter_calls = types.SimpleNamespace(args=None, kwargs=None)
 
-    def fake_to_api(raw, obj):
-        spy.called_with = (raw, obj)
-        return {"converted": True}
+    def fake_load_workflow_json(*args, **kwargs):
+        loader_calls.args = args
+        loader_calls.kwargs = kwargs
+        return dummy_graph
 
-    monkeypatch.setattr(chc, "to_api_format", fake_to_api)
+    def fake_graph_to_prompt(*args, **kwargs):
+        converter_calls.args = args
+        converter_calls.kwargs = kwargs
+        return None, {"converted": True}
+
+    monkeypatch.setattr(chc, "load_workflow_json", fake_load_workflow_json)
+    monkeypatch.setattr(chc, "graph_to_prompt", fake_graph_to_prompt)
 
     result = client.get_workflow_api("any")
     assert result == {"converted": True}
-    # Verify that the spy received the expected arguments
-    assert spy.called_with == (dummy_raw, dummy_obj_info)
+
+    # load_workflow_json must receive the raw workflow and object_info
+    assert loader_calls.args == (dummy_raw,)
+    assert loader_calls.kwargs == {"object_info": dummy_obj_info}
+
+    # graph_to_prompt must receive the graph returned by the loader
+    assert converter_calls.args == (dummy_graph,)
+    assert converter_calls.kwargs == {"sort_nodes": True}
 
 
 # ---------- Tests for queue_prompt ----------
