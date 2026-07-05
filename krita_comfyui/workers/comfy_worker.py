@@ -47,22 +47,18 @@ class ComfyWorker(QRunnable):
             new_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(new_loop)
 
-            http_client = ComfyHttpClient(self.server_url)
-            client = ComfyClient(self.logger, self.server_url)
+            http_client = ComfyHttpClient(self.server_url, self.cfg.api_key)
+            client = ComfyClient(
+                self.logger,
+                self.server_url,
+                self.cfg.api_key,
+                clipspace_enabled=self.cfg.clipspace_enabled,
+            )
 
             images: dict[str, list[bytes]] = {}
             async with client as c:
                 # Retrieve workflow from the server and convert it
                 wf_api = http_client.get_workflow_api(self.workflow_name)
-                # Build prompt using the saved configuration
-                prompt_builder = PromptBuilder(self.cfg)
-
-                image_imput_name = None
-                if self.image_prompt:
-                    image_imput_name = self.image_prompt.get_input_name()
-                prompt = prompt_builder.build(
-                    wf_api, self.workflow_name, self.prompt_text, image_imput_name, self.seed
-                )
 
                 output_node = find_output_node(wf_api)
                 if output_node is not None:
@@ -73,11 +69,24 @@ class ComfyWorker(QRunnable):
                     )
                 self.logger.debug(f"[ComfyWorker] Output_node: {node_id}")
 
+                # Upload images first (before building prompt, to get real filenames)
+                uploaded_image_name: str | None = None
+                wf_cfg = self.cfg.get_workflow(self.workflow_name)
+                if self.image_prompt and wf_cfg and wf_cfg.has_image_loader():
+                    uploaded_image_name = c.upload_images(self.image_prompt)
+                    self.logger.debug(f"[ComfyWorker] Image Prompt: {uploaded_image_name}")
+
+                # Build prompt using the saved configuration
+                prompt_builder = PromptBuilder(self.cfg)
+                prompt = prompt_builder.build(
+                    wf_api, self.workflow_name, self.prompt_text, uploaded_image_name, self.seed
+                )
+
+                self.logger.debug(f"[ComfyWorker] Promt: {prompt}")
                 images = await c.run_workflow(
                     workflow=prompt,
                     output_node=node_id,
-                    image_prompt=self.image_prompt,
-                    timeout=5 * 60,
+                    timeout=self.cfg.timeout_minutes * 60,
                     progress_callback=lambda p: self.signals.progress.emit(p),
                 )
 

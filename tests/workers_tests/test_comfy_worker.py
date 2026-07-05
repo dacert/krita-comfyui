@@ -108,10 +108,13 @@ def mock_client_factory():
     Factory that creates a mocked ComfyClient with configurable behaviour.
     """
 
-    def _factory(*, run_images=None, raise_on_run=False, progress_values=None):
+    def _factory(*, run_images=None, raise_on_run=False, progress_values=None, uploaded_name=None):
         client_mock = MagicMock()
         client_mock.__aenter__ = AsyncMock(return_value=client_mock)
         client_mock.__aexit__ = AsyncMock()
+
+        # Mock upload_images to return the uploaded filename
+        client_mock.upload_images = MagicMock(return_value=uploaded_name)
 
         if raise_on_run:
             client_mock.run_workflow.side_effect = Exception("run error")
@@ -225,7 +228,7 @@ def test_worker_success_with_image(
 ):
     """
     Execution path when an image prompt is supplied.
-    The worker should forward the image_prompt to ComfyClient and still emit finished signal.
+    The worker should upload images first, then pass the uploaded name to PromptBuilder.
     """
 
     output_node_patch()
@@ -243,11 +246,14 @@ def test_worker_success_with_image(
     image_prompt.width = 100
     image_prompt.height = 100
     image_prompt.sel_bytes = b"sel"
-    image_prompt.get_input_name.return_value = "node_image"
+
+    # The actual uploaded filename returned by the server
+    uploaded_filename = "clipspace/painted_mask.png [input]"
 
     mock_client = mock_client_factory(
         run_images=expected_images,
         progress_values=[25.0, 75.0],
+        uploaded_name=uploaded_filename,
     )
 
     with (
@@ -273,9 +279,20 @@ def test_worker_success_with_image(
     assert catcher.progress == [25.0, 75.0]
     assert catcher.finished[0] == expected_images
 
+    # Verify upload_images was called with the image_prompt
+    mock_client.upload_images.assert_called_once_with(image_prompt)
+
+    # Verify PromptBuilder.build was called with the uploaded filename
+    prompt_builder_mock.build.assert_called_once()
+    _args, _kwargs = prompt_builder_mock.build.call_args
+    # build(wf_api, workflow_name, base_prompt, image_input_name, seed)
+    # image_input_name is the 4th positional argument (index 3)
+    assert _args[3] == uploaded_filename
+
+    # Verify run_workflow no longer receives image_prompt (upload is done before)
     mock_client.run_workflow.assert_awaited_once()
-    _args, kwargs = mock_client.run_workflow.call_args
-    assert kwargs.get("image_prompt") is image_prompt
+    _rf_args, rf_kwargs = mock_client.run_workflow.call_args
+    assert "image_prompt" not in rf_kwargs
 
 
 def test_worker_missing_output_node(qapp, mock_cfg, http_client_mock, prompt_builder_mock):

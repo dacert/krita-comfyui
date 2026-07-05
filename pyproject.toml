@@ -11,7 +11,8 @@ target-version = "py310"
 line-length = 100
 preview = true
 extend-exclude = [
-    "krita_comfyui/websockets"
+    "krita_comfyui/websockets",
+    "krita_comfyui/litegraph_py"
 ]
 
 [tool.ruff.lint]
@@ -19,7 +20,7 @@ ignore = ["E741", "BLE001"]
 
 [tool.ty.src]
 include = ["krita_comfyui", "tests"]
-exclude = ["krita_comfyui/websockets"]
+exclude = ["krita_comfyui/websockets", "krita_comfyui/litegraph_py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

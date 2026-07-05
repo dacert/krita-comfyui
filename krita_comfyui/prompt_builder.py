@@ -27,7 +27,7 @@ class PromptBuilder:
         """
 
         # Find the workflow definition in the config
-        wf_cfg = next((w for w in self.cfg.workflows if w.workflow_name == workflow_name), None)
+        wf_cfg = self.cfg.get_workflow(workflow_name)
         if wf_cfg is None:
             # No specific configuration → return the original payload unchanged.
             return wf_api

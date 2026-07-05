@@ -7,11 +7,13 @@ from PyQt5.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -79,6 +81,29 @@ class SettingsDialog(QDialog):
         self.comfyui_url_edit = QLineEdit()
         tg_layout.addWidget(QLabel("ComfyUI URL:"))
         tg_layout.addWidget(self.comfyui_url_edit)
+
+        self.api_key_edit = QLineEdit()
+        self.api_key_edit.setEchoMode(QLineEdit.Password)
+        tg_layout.addWidget(QLabel("API Key (optional, for ComfyUI Cloud):"))
+        tg_layout.addWidget(self.api_key_edit)
+
+        generations_group = QGroupBox("Generation")
+        gg_layout = QVBoxLayout(generations_group)
+
+        self.timeout_spin = QSpinBox()
+        self.timeout_spin.setRange(1, 60)
+        self.timeout_spin.setSuffix(" min")
+        gg_layout.addWidget(QLabel("Generation timeout (minutes):"))
+        gg_layout.addWidget(self.timeout_spin)
+
+        self.clipspace_checkbox = QCheckBox("Enable clipspace uploads")
+        self.clipspace_checkbox.setToolTip(
+            "Upload the full clipspace chain (paint, painted, mask) before running "
+            "inpainting workflows. Disable only if your workflow does not use clipspace inputs."
+        )
+        gg_layout.addWidget(self.clipspace_checkbox)
+
+        tg_layout.addWidget(generations_group)
 
         tg_layout.addStretch(1)
         self.debug_level = QCheckBox("Debug level logger")
@@ -276,6 +301,15 @@ class SettingsDialog(QDialog):
     def _on_debug_level_change(self):
         self.cfg.logger = self.debug_level.isChecked()
 
+    def _on_api_key_changed(self):
+        self.cfg.api_key = self.api_key_edit.text().strip()
+
+    def _on_timeout_changed(self):
+        self.cfg.timeout_minutes = self.timeout_spin.value()
+
+    def _on_clipspace_changed(self):
+        self.cfg.clipspace_enabled = self.clipspace_checkbox.isChecked()
+
     def _load_config(self):
         """Load krita_comfyui.config with the new schema."""
         cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
@@ -285,6 +319,12 @@ class SettingsDialog(QDialog):
         self.debug_level.stateChanged.connect(self._on_debug_level_change)
         self.comfyui_url_edit.setText(self.cfg.comfyui_url)
         self.comfyui_url_edit.textChanged.connect(self._on_comfyui_url_changed)
+        self.api_key_edit.setText(self.cfg.api_key)
+        self.api_key_edit.textChanged.connect(self._on_api_key_changed)
+        self.timeout_spin.setValue(self.cfg.timeout_minutes)
+        self.timeout_spin.valueChanged.connect(self._on_timeout_changed)
+        self.clipspace_checkbox.setChecked(self.cfg.clipspace_enabled)
+        self.clipspace_checkbox.stateChanged.connect(self._on_clipspace_changed)
 
     def _populate_wf_form(self):
         """Build the form with combo boxes using the API instead of files."""
@@ -369,7 +409,7 @@ class SettingsDialog(QDialog):
 
     def _get_http_client(self, server_url: str):
         if self.http_client is None or self.http_client.server_address != server_url:
-            self.http_client = ComfyHttpClient(server_url)
+            self.http_client = ComfyHttpClient(server_url, self.cfg.api_key)
         return self.http_client
 
     def _get_workflows_list(self, server_url: str) -> dict:

@@ -139,7 +139,7 @@ class KritaComfyUi(DockWidget):
 
         # Obtain the list of available workflows on the server
         try:
-            http_client = ComfyHttpClient(self.cfg.comfyui_url)
+            http_client = ComfyHttpClient(self.cfg.comfyui_url, self.cfg.api_key)
             server_workflows = {
                 Path(item["path"]).name
                 for item in http_client.get_workflows_list()

@@ -1,3 +1,6 @@
 [submodule "krita_comfyui/websockets"]
 	path = krita_comfyui/websockets
 	url = https://github.com/python-websockets/websockets.git
+[submodule "krita_comfyui/litegraph_py"]
+	path = krita_comfyui/litegraph_py
+	url = https://github.com/dacert/litegraph_py.git

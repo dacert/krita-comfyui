@@ -207,3 +207,4 @@ marimo/_lsp/
 __marimo__/
 
 krita_comfyui/krita_comfyui.config
+*.log.*

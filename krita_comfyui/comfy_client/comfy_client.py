@@ -13,7 +13,16 @@ from ..websockets.src.websockets import connect as websockets_connect
 from ..websockets.src.websockets.exceptions import ConnectionClosedOK
 from .comfy_http_client import ComfyHttpClient
 from .image_prompt import ImagePrompt
-from .image_utils import qimage_to_bytes, reduce_alpha_by_selection
+from .image_utils import (
+    create_transparent_argb32_image,
+    fix_image,
+    qimage_to_bytes,
+    reduce_alpha_by_selection,
+)
+
+
+class ComfyExecutionError(Exception):
+    """Raised when Comfy returns 'ExecutionError' during workflow execution."""
 
 
 class ComfyClient:
@@ -21,10 +30,19 @@ class ComfyClient:
     Asynchronous client to interact with the ComfyUI server (WS).
     """
 
-    def __init__(self, logger: Logger, server: str):
+    def __init__(
+        self,
+        logger: Logger,
+        server: str,
+        api_key: str = "",
+        *,
+        clipspace_enabled: bool = True,
+    ):
         self.logger = logger
         self.server_address = self.get_ws_host(server)
-        self.http_client = ComfyHttpClient(server)
+        self.api_key = api_key
+        self.clipspace_enabled = clipspace_enabled
+        self.http_client = ComfyHttpClient(server, api_key)
         self.client_id = str(uuid.uuid4())
         self.ws: ClientConnection
 
@@ -37,10 +55,15 @@ class ComfyClient:
 
     def get_ws_host(self, url: str) -> str | None:
         parsed = urlparse(url)
-        return f"ws://{parsed.hostname}:{parsed.port}" if parsed.port else f"ws://{parsed.hostname}"
+        scheme = "wss" if parsed.scheme == "https" else "ws"
+        if parsed.port:
+            return f"{scheme}://{parsed.hostname}:{parsed.port}"
+        return f"{scheme}://{parsed.hostname}"
 
     async def _connect_ws(self) -> None:
         url = f"{self.server_address}/ws?clientId={self.client_id}"
+        if self.api_key:
+            url += f"&token={self.api_key}"
         self.ws = await websockets_connect(url, max_size=2**30, ping_timeout=60)
         self.logger.debug(f"[ComfyClient]  WS connected as {self.client_id}")
 
@@ -81,6 +104,21 @@ class ComfyClient:
                                 else:
                                     current_node = data["node"]
 
+                        elif msg.get("type") == "execution_success":
+                            data = msg["data"]
+                            if data["prompt_id"] == prompt_id:
+                                break  # Execution is done
+
+                        elif msg.get("type") == "execution_error":
+                            data = msg["data"]
+                            error_message = data["exception_message"]
+                            self.logger.error(f"[ComfyClient] ComfyError: {error_message}")
+                            raise ComfyExecutionError(error_message)
+
+                        elif msg.get("type") == "notification":
+                            data = msg["data"]
+                            self.logger.info(f"[ComfyClient] Comfy Notification: {data}")
+
                         elif msg["type"] == "execution_cached":
                             cache_nodes = len(msg["data"]["nodes"])
 
@@ -105,7 +143,7 @@ class ComfyClient:
 
                     else:
                         if current_node and current_node == output_node:
-                            output_images.setdefault(current_node, []).append(message[8:])
+                            output_images.setdefault(current_node, []).append(fix_image(message))
             except ConnectionClosedOK:
                 pass
 
@@ -116,9 +154,19 @@ class ComfyClient:
 
         return output_images
 
-    def _image_uploader(self, image_prompt: ImagePrompt):
+    def _is_localhost(self):
+        server = self.server_address or ""
+        return "localhost" in server or "127.0.0.1" in server or "::1" in server
+
+    def upload_images(self, image_prompt: ImagePrompt) -> str | None:
+        """
+        Upload image and mask to ComfyUI server.
+
+        Returns the real uploaded filename (including clipspace subfolder if applicable)
+        that should be used as input for the workflow, or None if no upload occurred.
+        """
         if not image_prompt.has_image_data():
-            return
+            return None
 
         qimg = QImage(
             image_prompt.image_bytes,
@@ -132,38 +180,94 @@ class ComfyClient:
             "image", image_prompt.image, image_bytes, subfolder="", overwrite=True
         )
 
-        if not uploaded or not image_prompt.sel_bytes:
-            return
+        if not uploaded:
+            return None
+
+        input_name = (
+            f"{image_prompt.image} [input]"
+            if self._is_localhost()
+            else f"{uploaded['name']} [input]"
+        )
+
+        if not image_prompt.sel_bytes is not None:
+            return input_name
 
         mask_qimg = reduce_alpha_by_selection(
             qimg, image_prompt.width, image_prompt.height, image_prompt.sel_bytes
         )
-
         mask_bytes = qimage_to_bytes(mask_qimg)
 
-        self.http_client.upload_file(
+        painted_uploaded = None
+        if self.clipspace_enabled:
+            _ = self.http_client.upload_file(
+                "mask",
+                image_prompt.mask,
+                mask_bytes,
+                subfolder="clipspace",
+                ref=uploaded["name"],
+                ref_subfolder=uploaded["subfolder"],
+                overwrite=True,
+            )
+
+            paint_bytes = create_transparent_argb32_image(image_prompt.width, image_prompt.height)
+            _ = self.http_client.upload_file(
+                "image",
+                image_prompt.paint,
+                paint_bytes,
+                subfolder="clipspace",
+                ref=uploaded["name"],
+                ref_subfolder=uploaded["subfolder"],
+                overwrite=True,
+            )
+
+            painted_uploaded = self.http_client.upload_file(
+                "image",
+                image_prompt.painted,
+                image_bytes,
+                subfolder="clipspace",
+                ref=uploaded["name"],
+                ref_subfolder=uploaded["subfolder"],
+                overwrite=True,
+            )
+
+            if not painted_uploaded:
+                return input_name
+
+        ref_name = painted_uploaded["name"] if painted_uploaded else uploaded["name"]
+        ref_subfolder = painted_uploaded["subfolder"] if painted_uploaded else uploaded["subfolder"]
+
+        painted_masked_uploaded = self.http_client.upload_file(
             "mask",
             image_prompt.painted_mask,
             mask_bytes,
             subfolder="clipspace",
-            ref=uploaded["name"],
-            ref_subfolder=uploaded["subfolder"],
+            ref=ref_name,
+            ref_subfolder=ref_subfolder,
             overwrite=True,
         )
+
+        if painted_masked_uploaded:
+            input_name = (
+                f"clipspace/{image_prompt.painted_mask} [input]"
+                if self._is_localhost()
+                else f"{painted_masked_uploaded['name']} [input]"
+            )
+
+        return input_name
 
     async def run_workflow(
         self,
         workflow: dict,
         output_node: str,
         *,
-        image_prompt: ImagePrompt | None = None,
         timeout: float | None = None,
         progress_callback: Callable[[float], Any] | None = None,
     ) -> dict[str, list[bytes]]:
+        """
+        Execute a workflow and return the generated images.
 
-        if image_prompt:
-            self._image_uploader(image_prompt)
-
+        Note: Images must be uploaded separately via upload_images() before calling this method.
+        """
         resp = self.http_client.queue_prompt(workflow, self.client_id)
         prompt_id = resp["prompt_id"]
 
