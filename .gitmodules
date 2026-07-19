@@ -4,3 +4,7 @@
 [submodule "krita_comfyui/litegraph_py"]
 	path = krita_comfyui/litegraph_py
 	url = https://github.com/dacert/litegraph_py.git
+[submodule "krita_comfyui/comfy_graph_bind"]
+	path = krita_comfyui/comfy_graph_bind
+	url = https://github.com/dacert/comfy_graph_bind.git
+	branch = master
