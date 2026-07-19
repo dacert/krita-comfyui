@@ -20,16 +20,19 @@ from PyQt5.QtWidgets import (
 )
 
 from ..comfy_client import ComfyHttpClient
+from ..comfy_graph_bind.src.comfy_graph_bind import (
+    EditorConfig,
+    GraphEditorDialog,
+    StartOutputConfig,
+)
 from ..config import Config, WorkflowConfig, WorkflowInput
 from ..config_logging import getLogger
 from ..workers import Worker
-from .workflow_form_builder import WorkflowFormBuilder
 
 
 class SettingsDialog(QDialog):
     CONFIG_FILE = "krita_comfyui.config"
     WORKFLOWS_DIR = Path("workflows")  # relative to plugin_dir
-    OPTIONAL_PROPERTIES = WorkflowFormBuilder.OPTIONAL_PROPERTIES
 
     def __init__(self, plugin_dir: str, parent=None):
         super().__init__(parent)
@@ -49,7 +52,11 @@ class SettingsDialog(QDialog):
 
         self.is_loading = False
         self.loaded_workflows = []
-        self.wf_selectors = {}
+        self.start_outputs = [
+            StartOutputConfig("prompt"),
+            StartOutputConfig("seed", "INT"),
+            StartOutputConfig("image_loader"),
+        ]
 
     def _create_widgets(self):
         """Instantiate all UI widgets and lay them out."""
@@ -125,13 +132,24 @@ class SettingsDialog(QDialog):
         self.workflow_label = QLabel("Select Workflow:")
         wf_layout.addWidget(self.workflow_label)
         wf_layout.addWidget(self.workflow_combo)
-        self.workflow_combo.currentTextChanged.connect(lambda _: self._populate_wf_form())
+        self.workflow_combo.currentTextChanged.connect(self._on_workflow_selected)
         self._set_loading(False)
 
-        # Form placeholder -------------------------------------------------
-        self.wf_fields_widget = QWidget()
-        self.wf_form_builder = WorkflowFormBuilder(self.wf_fields_widget)
-        wf_layout.addWidget(self.wf_fields_widget)
+        # Status -----------------------------------------------------------
+        self.wf_status_label = QLabel("")
+        wf_layout.addWidget(self.wf_status_label)
+
+        # Buttons ----------------------------------------------------------
+        btn_layout = QHBoxLayout()
+        self.configure_btn = QPushButton("Configure Inputs…")
+        self.configure_btn.clicked.connect(self._open_graph_editor)
+        self.configure_btn.setEnabled(False)
+        self.remove_btn = QPushButton("Remove Configuration")
+        self.remove_btn.clicked.connect(self._delete_workflow_cfg)
+        self.remove_btn.setEnabled(False)
+        btn_layout.addWidget(self.configure_btn)
+        btn_layout.addWidget(self.remove_btn)
+        wf_layout.addLayout(btn_layout)
 
         wf_layout.addStretch(1)
 
@@ -222,34 +240,8 @@ class SettingsDialog(QDialog):
     def _get_workflows(self):
         server_list = self._get_workflows_list(self.cfg.comfyui_url)
         wf_names = sorted(Path(item["path"]).name for item in server_list if "path" in item)
-        cfg_map = {w.workflow_name: w for w in self.cfg.workflows}
-        return [
-            self._fetch_single_workflow(name, self.cfg.comfyui_url, cfg_map.get(name))
-            for name in wf_names
-        ]
-
-    def _fetch_single_workflow(self, name: str, server_url: str, matching_cfg=None):
-        missing_ref = False
-        saved = False
-        wf_data = None
-
-        if matching_cfg:
-            saved = True
-            try:
-                wf_data = self._get_workflow_api(server_url, name)
-            except Exception:
-                self.logger.exception("Get workflow api error:")
-            for key, prop_cfg in matching_cfg.inputs.items():
-                node_id, inp_name = prop_cfg.node_id, prop_cfg.property
-                if key in self.OPTIONAL_PROPERTIES and inp_name is None:
-                    continue
-                if wf_data is None or inp_name not in wf_data.get(str(node_id), {}).get(
-                    "inputs", {}
-                ):
-                    missing_ref = True
-                    break
-
-        return (name, saved, missing_ref, wf_data)
+        cfg_names = {w.workflow_name for w in self.cfg.workflows}
+        return [(name, name in cfg_names) for name in wf_names]
 
     def _populate_workflow_combo(self, workflows):
         """Populate the combo with workflow names returned by ComfyUI's API."""
@@ -257,21 +249,14 @@ class SettingsDialog(QDialog):
         self.workflow_combo.addItem("— No workflow selected —")  # default
 
         saved_icon = Krita.instance().icon("bookmarks")
-        warn_icon = Krita.instance().icon("warning")
 
         self.loaded_workflows = workflows
-        for name, isSaved, missing_ref, _ in workflows:
+        for name, isSaved in workflows:
             item_index = self.workflow_combo.count()
             self.workflow_combo.addItem(name)
 
-            icon_to_use = None
             if isSaved:
-                icon_to_use = warn_icon if missing_ref else saved_icon
-
-            if icon_to_use:
-                self.workflow_combo.setItemIcon(item_index, icon_to_use)
-
-            if isSaved:
+                self.workflow_combo.setItemIcon(item_index, saved_icon)
                 model_item = self.workflow_combo.model().item(item_index)
                 if model_item:
                     fnt = model_item.font()
@@ -326,53 +311,59 @@ class SettingsDialog(QDialog):
         self.clipspace_checkbox.setChecked(self.cfg.clipspace_enabled)
         self.clipspace_checkbox.stateChanged.connect(self._on_clipspace_changed)
 
-    def _populate_wf_form(self):
-        """Build the form with combo boxes using the API instead of files."""
+    def _on_workflow_selected(self):
+        """Update UI when a workflow is selected in the combo box."""
         wf_name = self.workflow_combo.currentText()
         if not wf_name or wf_name == "— No workflow selected —":
-            self.wf_form_builder.clear()
+            self.wf_status_label.setText("")
+            self.configure_btn.setEnabled(False)
+            self.remove_btn.setEnabled(False)
+            return
+
+        is_saved = any(w.workflow_name == wf_name for w in self.cfg.workflows)
+        self.wf_status_label.setText("✓ Configured" if is_saved else "— Not configured")
+        self.configure_btn.setEnabled(True)
+        self.remove_btn.setEnabled(is_saved)
+
+    def _open_graph_editor(self):
+        """Open the visual graph editor dialog for the selected workflow."""
+        wf_name = self.workflow_combo.currentText()
+        if wf_name == "— No workflow selected —":
             return
 
         try:
-            wf_data = next((w[-1] for w in self.loaded_workflows if w[0] == wf_name), {})
-            if not wf_data:
-                wf_data = self._get_workflow_api(self.cfg.comfyui_url, wf_name)
+            wf_data = self._get_workflow_api(self.cfg.comfyui_url, wf_name)
         except Exception:
             self.logger.exception("Cannot load workflow:")
             QMessageBox.warning(self, "Error", "Cannot load workflow")
             return
 
-        # Find existing config for this workflow (if any)
         cfg_obj = next((w for w in self.cfg.workflows if w.workflow_name == wf_name), None)
 
-        # Build the form via the helper
-        self.wf_form_builder.build_from_api(wf_data, cfg_obj)
-
-        # Add action buttons – callbacks are methods of SettingsDialog
-        self.wf_form_builder.add_action_buttons(
-            update_cb=self._update_or_add_workflow_cfg,
-            delete_cb=self._delete_workflow_cfg,
-            can_delete=cfg_obj is not None,
+        config = EditorConfig(
+            workflow_name=wf_name,
+            start_node_title="Krita Inputs",
+            start_outputs=self.start_outputs,
         )
 
-    def _update_or_add_workflow_cfg(self):
-        """
-        Create or update the current workflow configuration in `self.cfg`.
-        """
-        wf_name = self.workflow_combo.currentText()
-        if wf_name == "— No workflow selected —":
-            QMessageBox.warning(self, "Error", "No workflow selected.")
+        dialog = GraphEditorDialog.from_api_workflow(
+            wf_data,
+            config,
+            initial_result=self._config_to_initial_result(cfg_obj),
+            parent=self,
+        )
+        dialog.setWindowTitle(f"Configure — {wf_name}")
+        if dialog.exec_() != GraphEditorDialog.Accepted:
             return
 
-        inputs_cfg = {}
-        for prop, (combo, opts) in self.wf_form_builder.selectors.items():
-            idx = combo.currentIndex()
-            node_id, inp_name = opts[idx][1], opts[idx][2]
-            if (node_id is None or inp_name is None) and prop not in self.OPTIONAL_PROPERTIES:
-                QMessageBox.warning(self, "Validation error", f"{prop} can´t be empty.")
-                return
-            inputs_cfg[prop] = WorkflowInput(node_id=node_id, property=inp_name)
+        result = dialog.editor_result()
+        if result is None:
+            return
 
+        inputs_cfg = {
+            name: WorkflowInput(node_id=entry["node_id"], property=entry["property"])
+            for name, entry in result.get("inputs", {}).items()
+        }
         wf_obj = WorkflowConfig(workflow_name=wf_name, inputs=inputs_cfg)
 
         replaced = False
@@ -387,16 +378,26 @@ class SettingsDialog(QDialog):
         self._populate_workflow()
 
     def _delete_workflow_cfg(self):
-        """
-        Remove the currently selected workflow configuration from `self.cfg`.
-        """
+        """Remove the currently selected workflow configuration from `self.cfg`."""
         wf_name = self.workflow_combo.currentText()
         if wf_name == "— No workflow selected —":
             return
 
         self.cfg.workflows = [w for w in self.cfg.workflows if w.workflow_name != wf_name]
-
         self._populate_workflow()
+
+    @staticmethod
+    def _config_to_initial_result(cfg_obj: WorkflowConfig | None) -> dict | None:
+        """Convert a WorkflowConfig to the initial_result format expected by GraphEditorDialog."""
+        if cfg_obj is None:
+            return None
+        return {
+            "workflow_name": cfg_obj.workflow_name,
+            "inputs": {
+                name: {"node_id": inp.node_id, "property": inp.property}
+                for name, inp in cfg_obj.inputs.items()
+            },
+        }
 
     def _accepted(self):
         """Persist the current dialog state into Config."""

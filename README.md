@@ -91,11 +91,16 @@ To have the plugin list available workflows, the ComfyUI server must be online a
 
 > ⚠️ **Critical Requirement:** Workflows **must** include a `SaveImageWebsocket` output node. This custom node is required for the plugin to receive generated images from ComfyUI. Without it, execution will fail with the error: *"No 'SaveImageWebsocket' output node found."*
 
-1. In the **Workflow** tab, select a workflow (e.g., *Qwen Image Edit.json*).
-2. Adjust parameters: prompt, seed, image loading nodes, etc.
-3. Use **Add/Update** to save the configuration or **Remove** to delete it.
+1. In the **Workflow** tab, select a workflow (e.g., *image_qwen_image_edit_2509.json*).
+2. Use **Configure Inputs...** to open the configuration dialog or **Remove Configuration** to delete it.
 
    ![Select Workflow](media/comfyui-plugin-settings[Workflows][selected].png)
+
+3. Link parameters to "Krita Inputs" node: prompt, seed, image loading nodes, etc.
+
+   ![Configure Inputs](media/comfyui-plugin-settings[Workflows][inputs].png)
+
+> ⚠️ **Important:** This graph configuration dialog is read-only — it is not intended for editing workflows. Its only purpose is to link the Krita input node with the other nodes, establishing the communication interface between the plugin and the workflows.
 
 ## Using the Plugin
 

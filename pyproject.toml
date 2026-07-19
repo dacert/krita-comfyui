@@ -20,7 +20,7 @@ ignore = ["E741", "BLE001"]
 
 [tool.ty.src]
 include = ["krita_comfyui", "tests"]
-exclude = ["krita_comfyui/websockets", "krita_comfyui/litegraph_py"]
+exclude = ["krita_comfyui/websockets", "krita_comfyui/litegraph_py", "krita_comfyui/comfy_graph_bind"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
