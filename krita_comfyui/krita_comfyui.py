@@ -20,6 +20,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.sip import voidptr
 
+from krita_comfyui import __version__
+
 from .comfy_client import ComfyHttpClient, ImagePrompt, reduce_alpha_by_selection
 from .config import Config
 from .config_logging import getLogger, init_logging
@@ -27,7 +29,7 @@ from .krita import DockWidget, Krita
 from .settings import SettingsDialog
 from .workers import ComfyWorker
 
-DOCKER_TITLE = "Krita ComfyUi"
+DOCKER_TITLE = "Krita ComfyUI v"
 
 
 class KritaComfyUi(DockWidget):
@@ -35,7 +37,7 @@ class KritaComfyUi(DockWidget):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(DOCKER_TITLE)
+        self.setWindowTitle(DOCKER_TITLE + __version__)
         init_logging()
         self.plugin_dir = os.path.abspath(os.path.dirname(__file__))
         self._reset_config()
