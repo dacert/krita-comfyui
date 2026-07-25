@@ -23,7 +23,7 @@ from PyQt5.sip import voidptr
 from krita_comfyui import __version__
 
 from .comfy_client import ComfyHttpClient, ImagePrompt, reduce_alpha_by_selection
-from .config import Config
+from .config import Config, find_or_migrate_config
 from .config_logging import getLogger, init_logging
 from .krita import DockWidget, Krita
 from .settings import SettingsDialog
@@ -33,7 +33,6 @@ DOCKER_TITLE = "Krita ComfyUI v"
 
 
 class KritaComfyUi(DockWidget):
-    CONFIG_FILE = "krita_comfyui.config"
 
     def __init__(self):
         super().__init__()
@@ -131,7 +130,7 @@ class KritaComfyUi(DockWidget):
 
     def _load_config(self) -> Config:
         """Delegate configuration handling to the `Config` class."""
-        cfg_path = Path(os.path.join(self.plugin_dir, self.CONFIG_FILE))
+        cfg_path = find_or_migrate_config(self.plugin_dir)
         return Config.load_or_create(cfg_path)
 
     def populate_workflow_combo(self):
