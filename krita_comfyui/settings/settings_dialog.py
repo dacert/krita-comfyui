@@ -53,8 +53,8 @@ class SettingsDialog(QDialog):
         self.is_loading = False
         self.loaded_workflows = []
         self.start_outputs = [
-            StartOutputConfig("prompt"),
-            StartOutputConfig("seed", "INT"),
+            StartOutputConfig("prompt", required=True),
+            StartOutputConfig("seed", "INT", required=True),
             StartOutputConfig("image_loader"),
         ]
 
