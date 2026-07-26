@@ -33,7 +33,6 @@ DOCKER_TITLE = "Krita ComfyUI v"
 
 
 class KritaComfyUi(DockWidget):
-
     def __init__(self):
         super().__init__()
         self.setWindowTitle(DOCKER_TITLE + __version__)
