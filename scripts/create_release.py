@@ -20,10 +20,26 @@ TEMP_EXTENSIONS = frozenset((
     ".log",
 ))
 
+EXCLUDED_NAMES = frozenset((
+    ".git",
+    ".github",
+    ".ruff_cache",
+    "examples",
+    ".gitignore",
+    "AGENTS.md",
+    "pyproject.toml",
+    "requirements.txt",
+    "requirement.txt",
+))
+
 
 def _should_exclude(path: Path) -> bool:
     """Check if a file or directory should be excluded."""
-    return "__pycache__" in path.parts or path.suffix in TEMP_EXTENSIONS
+    return (
+        path.name in EXCLUDED_NAMES
+        or "__pycache__" in path.parts
+        or path.suffix in TEMP_EXTENSIONS
+    )
 
 
 def _add_directory_to_zip(
@@ -37,6 +53,8 @@ def _add_directory_to_zip(
         if exclude_dir and file_path.name == exclude_dir:
             dirs[:] = []
             continue
+
+        dirs[:] = [d for d in dirs if d not in EXCLUDED_NAMES]
 
         rel_path = file_path.relative_to(source_dir)
         if rel_path != Path(".") and "__pycache__" not in rel_path.parts:
