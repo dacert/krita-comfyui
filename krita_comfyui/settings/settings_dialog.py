@@ -98,6 +98,16 @@ class SettingsDialog(QDialog):
         self.env_var_label.setVisible(False)
         tg_layout.addWidget(self.env_var_label)
 
+        self.secret_warning_label = QLabel(
+            "⚠ The API key is stored with base64 obfuscation (not encryption)."
+            " For better security, use the `KRITA_COMFYUI_API_KEY` environment variable"
+            " instead."
+        )
+        self.secret_warning_label.setStyleSheet("color: #d97706;")
+        self.secret_warning_label.setWordWrap(True)
+        self.secret_warning_label.setVisible(False)
+        tg_layout.addWidget(self.secret_warning_label)
+
         generations_group = QGroupBox("Generation")
         gg_layout = QVBoxLayout(generations_group)
 
@@ -316,11 +326,13 @@ class SettingsDialog(QDialog):
             self.api_key_edit.setToolTip("Set via KRITA_COMFYUI_API_KEY env var")
             self.env_var_label.setText("✓ API Key from KRITA_COMFYUI_API_KEY")
             self.env_var_label.setVisible(True)
+            self.secret_warning_label.setVisible(False)
         else:
             self.api_key_edit.setText(self.cfg.api_key)
             self.api_key_edit.setEnabled(True)
             self.api_key_edit.setToolTip("")
             self.env_var_label.setVisible(False)
+            self.secret_warning_label.setVisible(True)
         self.api_key_edit.textChanged.connect(self._on_api_key_changed)
         self.timeout_spin.setValue(self.cfg.timeout_minutes)
         self.timeout_spin.valueChanged.connect(self._on_timeout_changed)
@@ -429,7 +441,7 @@ class SettingsDialog(QDialog):
             self.http_client = ComfyHttpClient(server_url, self.cfg.api_key)
         return self.http_client
 
-    def _get_workflows_list(self, server_url: str) -> dict:
+    def _get_workflows_list(self, server_url: str) -> list[dict]:
         return self._get_http_client(server_url).get_workflows_list()
 
     def _get_workflow_api(self, server_url: str, name: str) -> dict:

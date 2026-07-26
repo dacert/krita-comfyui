@@ -29,13 +29,14 @@ from .krita import DockWidget, Krita
 from .settings import SettingsDialog
 from .workers import ComfyWorker
 
-DOCKER_TITLE = "Krita ComfyUI v"
+DOCK_TITLE = "Krita ComfyUI v"
+MAX_THUMBNAILS = 50
 
 
 class KritaComfyUi(DockWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(DOCKER_TITLE + __version__)
+        self.setWindowTitle(DOCK_TITLE + __version__)
         init_logging()
         self.plugin_dir = os.path.abspath(os.path.dirname(__file__))
         self._reset_config()
@@ -118,7 +119,7 @@ class KritaComfyUi(DockWidget):
         # Settings dialog
         self.settings_btn.clicked.connect(self.open_settings_dialog)
         # Generate workflow
-        self.create_btn.clicked.connect(self.conmfyui_promt)
+        self.create_btn.clicked.connect(self.on_generate_clicked)
         # Apply selected thumbnail to Krita
         self.apply_btn.clicked.connect(self.add_to_krita)
 
@@ -166,7 +167,7 @@ class KritaComfyUi(DockWidget):
             self.populate_workflow_combo()
             self.logger.debug("[Settings] Changes saved")
 
-    def conmfyui_promt(self):
+    def on_generate_clicked(self):
         """Prepares the worker and starts it."""
         prompt = self.prompt_box.toPlainText().strip()
         if not prompt:
@@ -229,6 +230,9 @@ class KritaComfyUi(DockWidget):
                 item.setData(Qt.ItemDataRole.UserRole + 1, qimage)  # QImage
 
                 self.thumbnail_list.addItem(item)
+
+        while self.thumbnail_list.count() > MAX_THUMBNAILS:
+            self.thumbnail_list.takeItem(0)
 
         self.logger.debug("Generation completed")
 

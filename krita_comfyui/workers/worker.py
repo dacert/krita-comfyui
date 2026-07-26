@@ -1,5 +1,3 @@
-import time
-
 from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 
 
@@ -24,11 +22,9 @@ class Worker(QRunnable):
     def run(self):
         """
         Execute the wrapped function in a worker thread.
-        Emits the result asynchronously to ensure all signal connections are active.
         """
         try:
             result = self.fn(*self.args, **self.kwargs)
-            time.sleep(0.001)
             self.signals.finished.emit(result)
         except Exception as e:
             self.signals.error.emit(str(e))

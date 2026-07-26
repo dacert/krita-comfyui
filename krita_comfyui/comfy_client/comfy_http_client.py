@@ -1,6 +1,7 @@
 import json
 import urllib.request
 import uuid
+from typing import Any
 from urllib.parse import quote, urlencode, urljoin
 
 from ..litegraph_py.src.litegraph_py import graph_to_prompt, load_workflow_json
@@ -85,14 +86,14 @@ class ComfyHttpClient:
             data=body,
             headers=headers,
         )
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=self.TIMEOUT_SECONDS * 6) as resp:
             resp_data = json.loads(resp.read().decode())
 
         if isinstance(resp_data, dict):
             return resp_data
         return None
 
-    def get_workflows_list(self) -> dict:
+    def get_workflows_list(self) -> list[dict[str, Any]]:
         query = {
             "dir": "workflows",
             "recurse": True,
@@ -149,7 +150,7 @@ class ComfyHttpClient:
         req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
         if self.api_key:
             req.add_header("X-API-Key", self.api_key)
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=self.TIMEOUT_SECONDS) as resp:
             return json.loads(resp.read())
 
     def _encode_multipart_formdata(
