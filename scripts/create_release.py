@@ -36,9 +36,7 @@ EXCLUDED_NAMES = frozenset((
 def _should_exclude(path: Path) -> bool:
     """Check if a file or directory should be excluded."""
     return (
-        path.name in EXCLUDED_NAMES
-        or "__pycache__" in path.parts
-        or path.suffix in TEMP_EXTENSIONS
+        path.name in EXCLUDED_NAMES or "__pycache__" in path.parts or path.suffix in TEMP_EXTENSIONS
     )
 
 
