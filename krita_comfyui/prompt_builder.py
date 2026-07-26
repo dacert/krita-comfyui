@@ -7,6 +7,7 @@ import random
 from typing import Any
 
 from .config import Config
+from .constants import MAX_SEED
 
 
 class PromptBuilder:
@@ -38,11 +39,23 @@ class PromptBuilder:
         # Inject prompt and seed values using node mapping from config
         inputs_map = wf_cfg.inputs
 
-        prompt_input = inputs_map["prompt"]
+        prompt_input = inputs_map.get("prompt")
+        if prompt_input is None:
+            raise ValueError(
+                f"Workflow '{workflow_name}' has no 'prompt' input configured. "
+                "Open Settings ▸ Workflow ▸ Configure Inputs… and link the 'prompt' "
+                "output to a node input."
+            )
         payload[prompt_input.node_id]["inputs"][prompt_input.property] = base_prompt
 
-        seed_val = seed if seed is not None else random.randint(1, 11768320141)
-        seed_input = inputs_map["seed"]
+        seed_input = inputs_map.get("seed")
+        if seed_input is None:
+            raise ValueError(
+                f"Workflow '{workflow_name}' has no 'seed' input configured. "
+                "Open Settings ▸ Workflow ▸ Configure Inputs… and link the 'seed' "
+                "output to a node input."
+            )
+        seed_val = seed if seed is not None else random.randint(1, MAX_SEED)
         payload[seed_input.node_id]["inputs"][seed_input.property] = seed_val
 
         # Handle optional image input

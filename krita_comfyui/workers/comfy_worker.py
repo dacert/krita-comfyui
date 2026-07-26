@@ -44,9 +44,6 @@ class ComfyWorker(QRunnable):
     async def _run_async(self):
         """Async body that runs inside the thread."""
         try:
-            new_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(new_loop)
-
             http_client = ComfyHttpClient(self.server_url, self.cfg.api_key)
             client = ComfyClient(
                 self.logger,

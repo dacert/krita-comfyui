@@ -2,7 +2,14 @@ import json
 
 import pytest
 
-from krita_comfyui.config import DEFAULT_URL, Config, WorkflowConfig, WorkflowInput
+from krita_comfyui import secret_store
+from krita_comfyui.config import (
+    DEFAULT_URL,
+    Config,
+    WorkflowConfig,
+    WorkflowInput,
+    find_or_migrate_config,
+)
 
 
 @pytest.fixture
@@ -334,4 +341,202 @@ def test_clipspace_persistence_roundtrip(tmp_path):
     assert loaded.clipspace_enabled is False
 
 
-# End of test suite
+# --------------------------------------------------------------------------- #
+#  api_key secure storage tests
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(autouse=True)
+def _isolate_secrets_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(secret_store, "SECRETS_DIR", tmp_path)
+    monkeypatch.setattr(secret_store, "SECRETS_FILE", tmp_path / "secrets.json")
+    monkeypatch.setattr("krita_comfyui.config.HOME_CONFIG_FILE", tmp_path / "config.json")
+
+
+class TestApiKeySecureStorage:
+    """Tests for the SecretStore + env var integration in Config."""
+
+    def test_save_writes_to_secret_store_not_json(self, tmp_path):
+        cfg = Config(logger=False, comfyui_url="http://test", api_key="sk-secret")
+        cfg_path = tmp_path / "krita_comfyui.config"
+        cfg.save(cfg_path)
+
+        data = json.loads(cfg_path.read_text(encoding="utf-8"))
+        assert data["api_key"] == ""
+
+        stored = secret_store.retrieve("api_key")
+        assert stored == "sk-secret"
+
+    def test_load_reads_from_secret_store(self, tmp_path):
+        secret_store.store("api_key", "sk-from-store")
+        cfg_dict = {"logger": False, "comfyui_url": "http://test", "api_key": "", "workflows": []}
+        cfg_path = tmp_path / "krita_comfyui.config"
+        cfg_path.write_text(json.dumps(cfg_dict), encoding="utf-8")
+
+        cfg = Config.load(cfg_path)
+        assert cfg.api_key == "sk-from-store"
+
+    def test_env_var_takes_priority_over_secret_store(self, tmp_path, monkeypatch):
+        secret_store.store("api_key", "sk-from-store")
+        monkeypatch.setenv("KRITA_COMFYUI_API_KEY", "sk-from-env")
+        cfg_dict = {"logger": False, "comfyui_url": "http://test", "api_key": "", "workflows": []}
+        cfg_path = tmp_path / "krita_comfyui.config"
+        cfg_path.write_text(json.dumps(cfg_dict), encoding="utf-8")
+
+        cfg = Config.load(cfg_path)
+        assert cfg.api_key == "sk-from-env"
+
+    def test_legacy_migration_on_load(self, tmp_path):
+        secret_store.delete("api_key")
+        cfg_dict = {
+            "logger": False,
+            "comfyui_url": "http://test",
+            "api_key": "sk-legacy",
+            "workflows": [],
+        }
+        cfg_path = tmp_path / "krita_comfyui.config"
+        cfg_path.write_text(json.dumps(cfg_dict), encoding="utf-8")
+
+        cfg = Config.load(cfg_path)
+        assert cfg.api_key == "sk-legacy"
+        stored = secret_store.retrieve("api_key")
+        assert stored == "sk-legacy"
+
+    def test_legacy_not_overwritten_on_save(self, tmp_path):
+        cfg_dict = {
+            "logger": False,
+            "comfyui_url": "http://test",
+            "api_key": "sk-legacy",
+            "workflows": [],
+        }
+        cfg_path = tmp_path / "krita_comfyui.config"
+        cfg_path.write_text(json.dumps(cfg_dict), encoding="utf-8")
+
+        cfg = Config.load(cfg_path)
+        cfg.save(cfg_path)
+
+        data = json.loads(cfg_path.read_text(encoding="utf-8"))
+        assert data["api_key"] == ""
+
+    def test_save_with_empty_key_removes_from_store(self, tmp_path):
+        secret_store.store("api_key", "old-key")
+        cfg = Config(logger=False, comfyui_url="http://test", api_key="")
+        cfg_path = tmp_path / "krita_comfyui.config"
+        cfg.save(cfg_path)
+
+        assert secret_store.retrieve("api_key") is None
+
+    def test_roundtrip_preserves_key(self, tmp_path):
+        original = Config(
+            logger=True, comfyui_url="http://roundtrip", api_key="sk-rt", workflows=[]
+        )
+        cfg_path = tmp_path / "krita_comfyui.config"
+        original.save(cfg_path)
+
+        loaded = Config.load(cfg_path)
+        assert loaded.api_key == "sk-rt"
+
+    def test_workflows_unchanged_by_secret_store(self, tmp_path):
+        cfg = Config(
+            logger=False,
+            comfyui_url="http://test",
+            api_key="sk-secret",
+            workflows=[
+                WorkflowConfig(
+                    workflow_name="wf.json",
+                    inputs={"prompt": WorkflowInput("1", "text")},
+                )
+            ],
+        )
+        cfg_path = tmp_path / "krita_comfyui.config"
+        cfg.save(cfg_path)
+        loaded = Config.load(cfg_path)
+
+        assert len(loaded.workflows) == 1
+        assert loaded.workflows[0].workflow_name == "wf.json"
+        assert loaded.workflows[0].inputs["prompt"].node_id == "1"
+
+    def test_all_fields_roundtrip_with_secret(self, tmp_path):
+        cfg = Config(
+            logger=True,
+            comfyui_url="http://full",
+            api_key="sk-full",
+            workflows=[
+                WorkflowConfig(
+                    workflow_name="full.json",
+                    inputs={"img": WorkflowInput("5", "path")},
+                )
+            ],
+            timeout_minutes=30,
+            clipspace_enabled=False,
+        )
+        cfg_path = tmp_path / "krita_comfyui.config"
+        cfg.save(cfg_path)
+        loaded = Config.load(cfg_path)
+
+        assert loaded.logger is True
+        assert loaded.comfyui_url == "http://full"
+        assert loaded.api_key == "sk-full"
+        assert loaded.timeout_minutes == 30
+        assert loaded.clipspace_enabled is False
+        assert len(loaded.workflows) == 1
+
+    def test_empty_env_var_does_not_override(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("KRITA_COMFYUI_API_KEY", "")
+        secret_store.store("api_key", "sk-from-store")
+        cfg_dict = {"logger": False, "comfyui_url": "http://test", "api_key": "", "workflows": []}
+        cfg_path = tmp_path / "krita_comfyui.config"
+        cfg_path.write_text(json.dumps(cfg_dict), encoding="utf-8")
+
+        cfg = Config.load(cfg_path)
+        assert cfg.api_key == "sk-from-store"
+
+    def test_secret_store_wins_over_legacy(self, tmp_path):
+        secret_store.store("api_key", "sk-store")
+        cfg_dict = {
+            "logger": False,
+            "comfyui_url": "http://test",
+            "api_key": "sk-legacy",
+            "workflows": [],
+        }
+        cfg_path = tmp_path / "krita_comfyui.config"
+        cfg_path.write_text(json.dumps(cfg_dict), encoding="utf-8")
+
+        cfg = Config.load(cfg_path)
+        assert cfg.api_key == "sk-store"
+
+    def test_load_or_create_no_stale_secret(self, tmp_path):
+        cfg_path = tmp_path / "missing.config"
+        cfg = Config.load_or_create(cfg_path)
+        assert cfg.api_key == ""
+        assert secret_store.retrieve("api_key") is None
+
+
+class TestFindOrMigrateConfig:
+    def test_returns_home_path_when_home_config_exists(self, tmp_path):
+        home_cfg = tmp_path / "config.json"
+        home_cfg.write_text("{}", encoding="utf-8")
+        cfg_path = find_or_migrate_config(str(tmp_path))
+        assert cfg_path == home_cfg
+
+    def test_migrates_legacy_config_to_home(self, tmp_path):
+        legacy_cfg = tmp_path / "krita_comfyui.config"
+        legacy_cfg.write_text('{"logger": true}', encoding="utf-8")
+        cfg_path = find_or_migrate_config(str(tmp_path))
+        assert cfg_path == tmp_path / "config.json"
+        assert cfg_path.exists()
+        assert not legacy_cfg.exists()
+        assert json.loads(cfg_path.read_text(encoding="utf-8"))["logger"] is True
+
+    def test_returns_home_path_when_no_config_exists(self, tmp_path):
+        cfg_path = find_or_migrate_config(str(tmp_path))
+        assert cfg_path == tmp_path / "config.json"
+
+    def test_home_takes_priority_over_legacy(self, tmp_path):
+        home_cfg = tmp_path / "config.json"
+        home_cfg.write_text('{"logger": true}', encoding="utf-8")
+        legacy_cfg = tmp_path / "krita_comfyui.config"
+        legacy_cfg.write_text('{"logger": false}', encoding="utf-8")
+        cfg_path = find_or_migrate_config(str(tmp_path))
+        assert cfg_path == home_cfg
+        assert legacy_cfg.exists()

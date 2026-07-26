@@ -85,12 +85,14 @@ class TestWorker(unittest.TestCase):
         def identity(x):
             return x
 
+        # Connect spies before starting workers (otherwise a fast worker may
+        # emit finished before the spy is attached, losing the signal).
         workers = [Worker(identity, i) for i in range(5)]
+        spies = {w: QSignalSpy(w.signals.finished) for w in workers}
+
         for w in workers:
             self.pool.start(w)
 
-        # Use QSignalSpy on each worker to collect results
-        spies = {w: QSignalSpy(w.signals.finished) for w in workers}
         timeout_ms = 2000
         while any(len(spy) == 0 for spy in spies.values()):
             if timeout_ms <= 0:

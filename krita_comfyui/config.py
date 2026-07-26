@@ -3,14 +3,19 @@ Typed configuration model and persistence helpers.
 """
 
 import json
+import os
+import stat
 from dataclasses import dataclass, field
 from dataclasses import fields as _dc_fields
 from pathlib import Path
 from typing import Any
 
+from . import secret_store
 from .config_logging import getLogger
 
 DEFAULT_URL = "http://localhost:8000"
+HOME_CONFIG_FILE = secret_store.SECRETS_DIR / "config.json"
+LEGACY_CONFIG_NAME = "krita_comfyui.config"
 
 
 def _filter_input_dict(raw: dict[str, Any], cls):
@@ -31,6 +36,27 @@ def _filter_input_dict(raw: dict[str, Any], cls):
     """
     allowed = {f.name for f in _dc_fields(cls)}
     return {k: raw[k] for k in allowed if k in raw}
+
+
+def find_or_migrate_config(plugin_dir: str | os.PathLike[str]) -> Path:
+    logger = getLogger("config")
+    home_cfg = HOME_CONFIG_FILE
+    if home_cfg.exists():
+        return home_cfg
+
+    legacy_cfg = Path(plugin_dir) / LEGACY_CONFIG_NAME
+    if legacy_cfg.exists():
+        try:
+            secret_store._ensure_dir()
+            home_cfg.write_bytes(legacy_cfg.read_bytes())
+            if os.name == "posix":
+                home_cfg.chmod(stat.S_IRUSR | stat.S_IWUSR)
+            legacy_cfg.unlink()
+            logger.info("Migrated config from %s to %s", legacy_cfg, home_cfg)
+        except OSError as exc:
+            logger.warning("Failed to migrate config from %s to %s: %s", legacy_cfg, home_cfg, exc)
+
+    return home_cfg
 
 
 @dataclass
@@ -79,10 +105,22 @@ class Config:
         ]
         timeout_minutes = data.get("timeout_minutes", 5)
         timeout_minutes = max(1, min(60, int(timeout_minutes)))
+        api_key = data.get("api_key", "")
+        env_key = os.environ.get("KRITA_COMFYUI_API_KEY")
+        if env_key:
+            api_key = env_key
+        else:
+            stored_key = secret_store.retrieve("api_key")
+            if stored_key:
+                api_key = stored_key
+            elif api_key:
+                secret_store.store("api_key", api_key)
+                data["api_key"] = ""
+                path.write_text(json.dumps(data, indent=2), encoding="utf-8")
         return cls(
             logger=data.get("logger", False),
             comfyui_url=data.get("comfyui_url", DEFAULT_URL),
-            api_key=data.get("api_key", ""),
+            api_key=api_key,
             workflows=workflows,
             timeout_minutes=timeout_minutes,
             clipspace_enabled=data.get("clipspace_enabled", True),
@@ -90,11 +128,14 @@ class Config:
 
     def save(self, path: Path):
         """Persist configuration to disk."""
-        # Serialise dataclasses back into plain dicts
+        if self.api_key:
+            secret_store.store("api_key", self.api_key)
+        else:
+            secret_store.delete("api_key")
         serialised = {
             "logger": self.logger,
             "comfyui_url": self.comfyui_url,
-            "api_key": self.api_key,
+            "api_key": "",
             "timeout_minutes": self.timeout_minutes,
             "clipspace_enabled": self.clipspace_enabled,
             "workflows": [

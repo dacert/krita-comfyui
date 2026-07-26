@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 
 from PyQt5.QtCore import QByteArray, QRect
 
+from ..constants import MAX_SEED
+
 
 @dataclass
 class ImagePrompt:
@@ -10,7 +12,7 @@ class ImagePrompt:
     Represents a set of image filenames that all share the same ID.
     """
 
-    image_id: str = field(default_factory=lambda: f"krita-{random.randint(1, 11768320141)}")
+    image_id: str = field(default_factory=lambda: f"krita-{random.randint(1, MAX_SEED)}")
     image: str = field(init=False)
     mask: str = field(init=False)
     paint: str = field(init=False)

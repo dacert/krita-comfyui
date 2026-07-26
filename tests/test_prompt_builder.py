@@ -92,12 +92,12 @@ def test_build_unknown_workflow(mock_cfg, base_api):
 
 
 def test_build_missing_input_mapping(mock_cfg, base_api):
-    """If a required input mapping key is missing, KeyError should propagate."""
+    """If a required input mapping key is missing, a descriptive ValueError should be raised."""
     builder = PromptBuilder(cfg=mock_cfg)
     # Remove the 'seed' mapping from config
     del builder.cfg.workflows[0].inputs["seed"]
 
-    with pytest.raises(KeyError, match="seed"):
+    with pytest.raises(ValueError, match="seed"):
         builder.build(wf_api=base_api, workflow_name="test_wf", base_prompt="Missing seed key")
 
 

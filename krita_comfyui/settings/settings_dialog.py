@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 
@@ -25,13 +26,12 @@ from ..comfy_graph_bind.src.comfy_graph_bind import (
     GraphEditorDialog,
     StartOutputConfig,
 )
-from ..config import Config, WorkflowConfig, WorkflowInput
+from ..config import Config, WorkflowConfig, WorkflowInput, find_or_migrate_config
 from ..config_logging import getLogger
 from ..workers import Worker
 
 
 class SettingsDialog(QDialog):
-    CONFIG_FILE = "krita_comfyui.config"
     WORKFLOWS_DIR = Path("workflows")  # relative to plugin_dir
 
     def __init__(self, plugin_dir: str, parent=None):
@@ -93,6 +93,20 @@ class SettingsDialog(QDialog):
         self.api_key_edit.setEchoMode(QLineEdit.Password)
         tg_layout.addWidget(QLabel("API Key (optional, for ComfyUI Cloud):"))
         tg_layout.addWidget(self.api_key_edit)
+        self.env_var_label = QLabel()
+        self.env_var_label.setStyleSheet("color: #8bc34a; font-weight: bold;")
+        self.env_var_label.setVisible(False)
+        tg_layout.addWidget(self.env_var_label)
+
+        self.secret_warning_label = QLabel(
+            "⚠ The API key is stored with base64 obfuscation (not encryption)."
+            " For better security, use the `KRITA_COMFYUI_API_KEY` environment variable"
+            " instead."
+        )
+        self.secret_warning_label.setStyleSheet("color: #d97706;")
+        self.secret_warning_label.setWordWrap(True)
+        self.secret_warning_label.setVisible(False)
+        tg_layout.addWidget(self.secret_warning_label)
 
         generations_group = QGroupBox("Generation")
         gg_layout = QVBoxLayout(generations_group)
@@ -297,14 +311,28 @@ class SettingsDialog(QDialog):
 
     def _load_config(self):
         """Load krita_comfyui.config with the new schema."""
-        cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
+        cfg_path = find_or_migrate_config(self.plugin_dir)
         self.cfg = Config.load_or_create(cfg_path)
 
         self.debug_level.setChecked(self.cfg.logger)
         self.debug_level.stateChanged.connect(self._on_debug_level_change)
         self.comfyui_url_edit.setText(self.cfg.comfyui_url)
         self.comfyui_url_edit.textChanged.connect(self._on_comfyui_url_changed)
-        self.api_key_edit.setText(self.cfg.api_key)
+        env_key = os.environ.get("KRITA_COMFYUI_API_KEY")
+        if env_key:
+            self.api_key_edit.setPlaceholderText("")
+            self.api_key_edit.setText("")
+            self.api_key_edit.setEnabled(False)
+            self.api_key_edit.setToolTip("Set via KRITA_COMFYUI_API_KEY env var")
+            self.env_var_label.setText("✓ API Key from KRITA_COMFYUI_API_KEY")
+            self.env_var_label.setVisible(True)
+            self.secret_warning_label.setVisible(False)
+        else:
+            self.api_key_edit.setText(self.cfg.api_key)
+            self.api_key_edit.setEnabled(True)
+            self.api_key_edit.setToolTip("")
+            self.env_var_label.setVisible(False)
+            self.secret_warning_label.setVisible(True)
         self.api_key_edit.textChanged.connect(self._on_api_key_changed)
         self.timeout_spin.setValue(self.cfg.timeout_minutes)
         self.timeout_spin.valueChanged.connect(self._on_timeout_changed)
@@ -402,8 +430,8 @@ class SettingsDialog(QDialog):
     def _accepted(self):
         """Persist the current dialog state into Config."""
         try:
-            cfg_path = Path(self.plugin_dir, self.CONFIG_FILE)
-            self.cfg.save(cfg_path)  # only save the existing self.cfg
+            cfg_path = find_or_migrate_config(self.plugin_dir)
+            self.cfg.save(cfg_path)
             self.accept()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save configuration: {e}")
@@ -413,7 +441,7 @@ class SettingsDialog(QDialog):
             self.http_client = ComfyHttpClient(server_url, self.cfg.api_key)
         return self.http_client
 
-    def _get_workflows_list(self, server_url: str) -> dict:
+    def _get_workflows_list(self, server_url: str) -> list[dict]:
         return self._get_http_client(server_url).get_workflows_list()
 
     def _get_workflow_api(self, server_url: str, name: str) -> dict:

@@ -51,10 +51,10 @@
        or your ComfyUI Cloud endpoint for cloud execution.
      - **API Key (optional, for ComfyUI Cloud)** – leave empty for a local
        server. When using ComfyUI Cloud, paste the API key issued by the
-       cloud service; it is sent as the `X-API-Key` header (HTTP) and as a
-       `token` query parameter on the WebSocket connection. The key is
-       stored in plain text in `krita_comfyui.config` — protect that file
-       accordingly.
+        cloud service; it is sent as the `X-API-Key` header (HTTP) and as a
+        `token` query parameter on the WebSocket connection. The key is
+        stored obfuscated in `~/.krita_comfyui/secrets.json`, separate from
+        the main configuration.
      - **Generation timeout (minutes)** – maximum time a single generation
        is allowed to run (1–60, default 5). Increase it for slow workflows
        such as high‑resolution or multi‑pass pipelines.
@@ -78,12 +78,10 @@ hardware. To use it from the plugin:
    - **API Key** to the value copied in step 1.
 3. Pick a workflow in the **Workflow** tab and click **Generate** as usual.
 
-The key is stored locally in `krita_comfyui.config` and is never sent
-anywhere other than to the configured ComfyUI server.
+The key is never sent anywhere other than to the configured ComfyUI server.
 
-> ⚠️ **Security notice:** the API key is stored in **plain text** inside
-> the local `krita_comfyui.config` file. Anyone with read access to your
-> user profile can view it. Do not share that file.
+> 💡 **Tip:** For extra security, set the `KRITA_COMFYUI_API_KEY`
+> environment variable instead — the key will never touch the filesystem.
 
 ## Workflow Configuration
 
@@ -165,7 +163,7 @@ The plugin temporarily stores all generations made during the session. You can b
 | SaveImageWebsocket node not found | Workflow missing required output node | Add a `SaveImageWebsocket` node to your ComfyUI workflow and reconnect it to the output image pipe. |
 | Cloud requests return 401/403 | Missing or invalid API key | Verify the API key in **Settings ▸ General ▸ API Key**. |
 | Generation aborts with a timeout | `timeout_minutes` too low for the workflow | Raise **Generation timeout** in **Settings ▸ General**. |
-| API key looks wrong / leaked | The key is saved in plain text in `krita_comfyui.config` | Rotate the key in ComfyUI Cloud and update it in **Settings ▸ General ▸ API Key**. Avoid sharing the config file. |
+| API key looks wrong / leaked | The key may have been compromised | Rotate the key in ComfyUI Cloud and update it in **Settings ▸ General ▸ API Key**. |
 
 ## Contribution and Support
 
