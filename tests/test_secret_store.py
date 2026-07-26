@@ -63,7 +63,9 @@ class TestStore:
         secret_store.store("api_key", "x")
         assert secret_store.has_secrets_file() is True
 
-    @pytest.mark.skipif(sys.platform.startswith("win"), reason="POSIX permissions not supported on Windows")
+    @pytest.mark.skipif(
+        sys.platform.startswith("win"), reason="POSIX permissions not supported on Windows"
+    )
     def test_file_permissions_posix(self):
         secret_store.store("api_key", "secret")
         mode = secret_store.SECRETS_FILE.stat().st_mode
@@ -87,5 +89,3 @@ class TestStore:
     def test_non_dict_json_returns_empty(self):
         secret_store.SECRETS_FILE.write_text('["a", "b"]', encoding="utf-8")
         assert secret_store.retrieve("api_key") is None
-
-
