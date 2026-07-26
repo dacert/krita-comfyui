@@ -1,7 +1,7 @@
 import json
 import urllib.request
 import uuid
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote, urlencode, urljoin
 
 from ..litegraph_py.src.litegraph_py import graph_to_prompt, load_workflow_json
@@ -101,7 +101,7 @@ class ComfyHttpClient:
             "full_info": True,
         }
         url = f"{self.server_address}/api/userdata?{urlencode(query)}"
-        return self._fetch_json(url)
+        return cast(list[dict[str, Any]], self._fetch_json(url))
 
     def get_workflow(self, name: str) -> dict:
         url = f"{self.server_address}/api/userdata/workflows%2F{quote(name)}"
